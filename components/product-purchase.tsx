@@ -2,102 +2,146 @@
 
 import { useState } from 'react'
 import { Minus, Plus } from 'lucide-react'
-import { useCart, buildWhatsAppLink } from '@/components/cart-context'
+import { useCart, buildWhatsAppLink, type CartItem } from '@/components/cart-context'
 import type { Product } from '@/lib/products'
 
 export function ProductPurchase({ product }: { product: Product }) {
   const { addItem } = useCart()
-  const [qty, setQty] = useState(1)
-  const [size, setSize] = useState<string | undefined>(
-    product.sizes?.length === 1 ? product.sizes[0] : undefined,
-  )
+  const hasSizes = product.sizes && product.sizes.length > 0
+
+  // Map size → quantity (0 = not selected)
+  const [sizeQtys, setSizeQtys] = useState<Record<string, number>>(() => {
+    if (!hasSizes) return { '': 1 }
+    return Object.fromEntries(product.sizes.map((s) => [s, 0]))
+  })
+
+  function setQty(size: string, delta: number) {
+    setSizeQtys((prev) => ({
+      ...prev,
+      [size]: Math.max(0, (prev[size] ?? 0) + delta),
+    }))
+  }
+
+  const selectedItems = hasSizes
+    ? product.sizes.filter((s) => sizeQtys[s] > 0)
+    : Object.keys(sizeQtys).filter(() => sizeQtys[''] > 0)
+
+  const hasSelection = hasSizes
+    ? product.sizes.some((s) => sizeQtys[s] > 0)
+    : sizeQtys[''] > 0
+
+  function handleAddToCart() {
+    if (hasSizes) {
+      product.sizes.forEach((s) => {
+        if (sizeQtys[s] > 0) addItem(product, sizeQtys[s], s)
+      })
+    } else {
+      addItem(product, sizeQtys[''] || 1)
+    }
+  }
+
+  const waItems: CartItem[] = hasSizes
+    ? product.sizes
+        .filter((s) => sizeQtys[s] > 0)
+        .map((s) => ({ key: `${product.id}::${s}`, product, size: s, quantity: sizeQtys[s] }))
+    : [{ key: `${product.id}::`, product, quantity: sizeQtys[''] || 1 }]
 
   return (
     <div>
-      {/* Size selector */}
-      {product.sizes && product.sizes.length > 1 && (
+      {hasSizes ? (
         <div className="mb-6">
           <p className="mb-3 text-[13px] uppercase" style={{ letterSpacing: '0.02em', color: '#6b6b6b' }}>
-            Medida
+            Medidas
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-3">
             {product.sizes.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setSize(s)}
-                className="px-4 py-2 text-[13px]"
-                style={{
-                  border: `1px solid ${size === s ? '#111111' : '#e5e5e5'}`,
-                  backgroundColor: size === s ? '#111111' : '#ffffff',
-                  color: size === s ? '#ffffff' : '#111111',
-                }}
-              >
-                {s}
-              </button>
+              <div key={s} className="flex items-center justify-between">
+                <span className="text-[14px]" style={{ color: '#111111' }}>{s}</span>
+                <div className="inline-flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setQty(s, -1)}
+                    aria-label="Disminuir"
+                    className="flex h-9 w-9 items-center justify-center"
+                    style={{ border: '1px solid #e5e5e5', color: '#111111' }}
+                  >
+                    <Minus size={13} strokeWidth={1.5} />
+                  </button>
+                  <span
+                    className="flex h-9 w-12 items-center justify-center text-[14px]"
+                    style={{ borderTop: '1px solid #e5e5e5', borderBottom: '1px solid #e5e5e5', color: '#111111' }}
+                  >
+                    {sizeQtys[s]}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQty(s, 1)}
+                    aria-label="Aumentar"
+                    className="flex h-9 w-9 items-center justify-center"
+                    style={{ border: '1px solid #e5e5e5', color: '#111111' }}
+                  >
+                    <Plus size={13} strokeWidth={1.5} />
+                  </button>
+                </div>
+              </div>
             ))}
+          </div>
+        </div>
+      ) : (
+        <div className="mb-6">
+          <p className="mb-3 text-[13px] uppercase" style={{ letterSpacing: '0.02em', color: '#6b6b6b' }}>
+            Cantidad
+          </p>
+          <div className="inline-flex items-center">
+            <button
+              type="button"
+              onClick={() => setQty('', -1)}
+              aria-label="Disminuir"
+              className="flex h-11 w-11 items-center justify-center"
+              style={{ border: '1px solid #111111', color: '#111111' }}
+            >
+              <Minus size={15} strokeWidth={1.5} />
+            </button>
+            <span
+              className="flex h-11 w-14 items-center justify-center text-[15px]"
+              style={{ borderTop: '1px solid #111111', borderBottom: '1px solid #111111', color: '#111111' }}
+            >
+              {sizeQtys['']}
+            </span>
+            <button
+              type="button"
+              onClick={() => setQty('', 1)}
+              aria-label="Aumentar"
+              className="flex h-11 w-11 items-center justify-center"
+              style={{ border: '1px solid #111111', color: '#111111' }}
+            >
+              <Plus size={15} strokeWidth={1.5} />
+            </button>
           </div>
         </div>
       )}
 
-      {/* Quantity selector */}
-      <div className="mb-6">
-        <p
-          className="mb-3 text-[13px] uppercase"
-          style={{ letterSpacing: '0.02em', color: '#6b6b6b' }}
-        >
-          Cantidad
-        </p>
-        <div className="inline-flex items-center">
-          <button
-            type="button"
-            onClick={() => setQty((q) => Math.max(1, q - 1))}
-            aria-label="Disminuir"
-            className="flex h-11 w-11 items-center justify-center"
-            style={{ border: '1px solid #111111', color: '#111111' }}
-          >
-            <Minus size={15} strokeWidth={1.5} />
-          </button>
-          <span
-            className="flex h-11 w-14 items-center justify-center text-[15px]"
-            style={{
-              borderTop: '1px solid #111111',
-              borderBottom: '1px solid #111111',
-              color: '#111111',
-            }}
-          >
-            {qty}
-          </span>
-          <button
-            type="button"
-            onClick={() => setQty((q) => q + 1)}
-            aria-label="Aumentar"
-            className="flex h-11 w-11 items-center justify-center"
-            style={{ border: '1px solid #111111', color: '#111111' }}
-          >
-            <Plus size={15} strokeWidth={1.5} />
-          </button>
-        </div>
-      </div>
-
       <button
         type="button"
-        onClick={() => addItem(product, qty, size)}
-        className="pc-btn w-full px-6 py-3.5 text-[14px]"
+        onClick={handleAddToCart}
+        disabled={!hasSelection}
+        className="pc-btn w-full px-6 py-3.5 text-[14px] disabled:opacity-40"
       >
         Agregar al carrito
       </button>
 
-      <a
-        href={buildWhatsAppLink([{ key: `${product.id}::${size ?? ''}`, product, size, quantity: qty }])}
-        target="_blank"
-        rel="noreferrer"
-        className="detail-link mt-5 inline-flex items-center gap-2 text-[13px]"
-        style={{ color: '#6b6b6b' }}
-      >
-        <WhatsAppIcon />
-        Consultar por WhatsApp
-      </a>
+      {waItems.length > 0 && (
+        <a
+          href={buildWhatsAppLink(waItems)}
+          target="_blank"
+          rel="noreferrer"
+          className="detail-link mt-5 inline-flex items-center gap-2 text-[13px]"
+          style={{ color: '#6b6b6b' }}
+        >
+          <WhatsAppIcon />
+          Consultar por WhatsApp
+        </a>
+      )}
     </div>
   )
 }
