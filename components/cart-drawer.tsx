@@ -61,15 +61,11 @@ export function CartDrawer() {
             <ul>
               {items.map((item) => (
                 <CartRow
-                  key={item.product.id}
+                  key={item.key}
                   item={item}
-                  onRemove={() => removeItem(item.product.id)}
-                  onDec={() =>
-                    updateQuantity(item.product.id, item.quantity - 1)
-                  }
-                  onInc={() =>
-                    updateQuantity(item.product.id, item.quantity + 1)
-                  }
+                  onRemove={() => removeItem(item.key)}
+                  onDec={() => updateQuantity(item.key, item.quantity - 1)}
+                  onInc={() => updateQuantity(item.key, item.quantity + 1)}
                 />
               ))}
             </ul>
@@ -156,7 +152,7 @@ function CartRow({
           </button>
         </div>
         <p className="mt-1 text-[13px]" style={{ color: '#6b6b6b' }}>
-          {item.product.category}
+          {item.product.category}{item.size ? ` · ${item.size}` : ''}
         </p>
         <div className="mt-3 inline-flex w-fit items-center">
           <button

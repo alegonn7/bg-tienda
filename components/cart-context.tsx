@@ -10,7 +10,9 @@ import {
 import type { Product } from '@/lib/products'
 
 export type CartItem = {
+  key: string
   product: Product
+  size?: string
   quantity: number
 }
 
@@ -20,9 +22,9 @@ type CartContextValue = {
   totalCount: number
   openCart: () => void
   closeCart: () => void
-  addItem: (product: Product, quantity?: number) => void
-  removeItem: (id: string) => void
-  updateQuantity: (id: string, quantity: number) => void
+  addItem: (product: Product, quantity?: number, size?: string) => void
+  removeItem: (key: string) => void
+  updateQuantity: (key: string, quantity: number) => void
 }
 
 const CartContext = createContext<CartContextValue | null>(null)
@@ -34,31 +36,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const openCart = useCallback(() => setIsOpen(true), [])
   const closeCart = useCallback(() => setIsOpen(false), [])
 
-  const addItem = useCallback((product: Product, quantity = 1) => {
+  const addItem = useCallback((product: Product, quantity = 1, size?: string) => {
+    const key = `${product.id}::${size ?? ''}`
     setItems((prev) => {
-      const existing = prev.find((i) => i.product.id === product.id)
+      const existing = prev.find((i) => i.key === key)
       if (existing) {
         return prev.map((i) =>
-          i.product.id === product.id
-            ? { ...i, quantity: i.quantity + quantity }
-            : i,
+          i.key === key ? { ...i, quantity: i.quantity + quantity } : i,
         )
       }
-      return [...prev, { product, quantity }]
+      return [...prev, { key, product, size, quantity }]
     })
     setIsOpen(true)
   }, [])
 
-  const removeItem = useCallback((id: string) => {
-    setItems((prev) => prev.filter((i) => i.product.id !== id))
+  const removeItem = useCallback((key: string) => {
+    setItems((prev) => prev.filter((i) => i.key !== key))
   }, [])
 
-  const updateQuantity = useCallback((id: string, quantity: number) => {
+  const updateQuantity = useCallback((key: string, quantity: number) => {
     setItems((prev) =>
       prev
-        .map((i) =>
-          i.product.id === id ? { ...i, quantity: Math.max(1, quantity) } : i,
-        )
+        .map((i) => (i.key === key ? { ...i, quantity: Math.max(1, quantity) } : i))
         .filter((i) => i.quantity > 0),
     )
   }, [])
@@ -92,9 +91,10 @@ export function useCart() {
 const WHATSAPP_NUMBER = '542241579045'
 
 export function buildWhatsAppLink(items: CartItem[]) {
-  const lines = items.map(
-    (i) => `• ${i.product.name} (x${i.quantity})`,
-  )
+  const lines = items.map((i) => {
+    const size = i.size ? ` — Medida: ${i.size}` : ''
+    return `• ${i.product.name}${size} (x${i.quantity})`
+  })
   const message = `Hola PinsCrew! Quiero consultar por el siguiente pedido:\n\n${lines.join(
     '\n',
   )}\n\nGracias!`

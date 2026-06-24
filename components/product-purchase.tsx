@@ -8,9 +8,38 @@ import type { Product } from '@/lib/products'
 export function ProductPurchase({ product }: { product: Product }) {
   const { addItem } = useCart()
   const [qty, setQty] = useState(1)
+  const [size, setSize] = useState<string | undefined>(
+    product.sizes?.length === 1 ? product.sizes[0] : undefined,
+  )
 
   return (
     <div>
+      {/* Size selector */}
+      {product.sizes && product.sizes.length > 1 && (
+        <div className="mb-6">
+          <p className="mb-3 text-[13px] uppercase" style={{ letterSpacing: '0.02em', color: '#6b6b6b' }}>
+            Medida
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {product.sizes.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSize(s)}
+                className="px-4 py-2 text-[13px]"
+                style={{
+                  border: `1px solid ${size === s ? '#111111' : '#e5e5e5'}`,
+                  backgroundColor: size === s ? '#111111' : '#ffffff',
+                  color: size === s ? '#ffffff' : '#111111',
+                }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Quantity selector */}
       <div className="mb-6">
         <p
@@ -53,14 +82,14 @@ export function ProductPurchase({ product }: { product: Product }) {
 
       <button
         type="button"
-        onClick={() => addItem(product, qty)}
+        onClick={() => addItem(product, qty, size)}
         className="pc-btn w-full px-6 py-3.5 text-[14px]"
       >
         Agregar al carrito
       </button>
 
       <a
-        href={buildWhatsAppLink([{ product, quantity: qty }])}
+        href={buildWhatsAppLink([{ key: `${product.id}::${size ?? ''}`, product, size, quantity: qty }])}
         target="_blank"
         rel="noreferrer"
         className="detail-link mt-5 inline-flex items-center gap-2 text-[13px]"
