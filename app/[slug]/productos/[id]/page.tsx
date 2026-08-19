@@ -72,12 +72,7 @@ export default async function ProductDetailPage({
             <p className="text-[15px]" style={{ color: '#6b6b6b' }}>
               {product.description}
             </p>
-            <p
-              className="mt-4 text-[13px] italic"
-              style={{ color: '#6b6b6b' }}
-            >
-              Personalizá con tu logo o imagen
-            </p>
+         
             <div
               className="my-6"
               style={{ borderTop: '1px solid #e5e5e5' }}
@@ -117,7 +112,7 @@ export default async function ProductDetailPage({
             />
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {related.map((p) => (
-                <ProductCard key={p.id} product={p} slug={slug} showPrices={store.showPrices} />
+                <ProductCard key={p.id} product={p} slug={slug} />
               ))}
             </div>
           </div>
