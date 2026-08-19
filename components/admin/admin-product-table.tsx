@@ -4,15 +4,26 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Product } from '@/lib/products'
 import { productImage } from '@/lib/products'
-import { removeProductFromStore, toggleProductActive, toggleProductFeatured } from '@/app/admin/actions'
+import {
+  removeProductFromStore,
+  restoreProductToStore,
+  toggleProductActive,
+  toggleProductFeatured,
+} from '@/app/admin/actions'
 
 export function AdminProductTable({ products }: { products: Product[] }) {
   const router = useRouter()
 
   async function handleRemove(productBranchId: string | undefined, name: string) {
     if (!productBranchId) return
-    if (!confirm(`¿Sacar "${name}" de la tienda online? El producto sigue existiendo en bg-gestion.`)) return
+    if (!confirm(`¿Sacar "${name}" de la tienda online? El producto sigue existiendo en bg-gestion, y podés volver a mostrarlo cuando quieras.`)) return
     await removeProductFromStore(productBranchId)
+    router.refresh()
+  }
+
+  async function handleRestore(productBranchId: string | undefined) {
+    if (!productBranchId) return
+    await restoreProductToStore(productBranchId)
     router.refresh()
   }
 
@@ -97,7 +108,15 @@ export function AdminProductTable({ products }: { products: Product[] }) {
                 </button>
               </td>
               <td className="px-6 py-4">
-                {product.stock === 0 ? (
+                {product.branchActive === false ? (
+                  <span
+                    className="text-[12px] uppercase"
+                    style={{ letterSpacing: '0.04em', color: '#6b6b6b' }}
+                    title="Sacado de la tienda a mano"
+                  >
+                    ⊘ Fuera de la tienda
+                  </span>
+                ) : product.stock === 0 ? (
                   <span
                     className="text-[12px] uppercase"
                     style={{ letterSpacing: '0.04em', color: '#b45309' }}
@@ -124,14 +143,25 @@ export function AdminProductTable({ products }: { products: Product[] }) {
                   <Link href={`/admin/productos/${product.id}/editar`} className="text-[13px]" style={{ color: '#111111' }}>
                     Editar
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(product.productBranchId, product.name)}
-                    className="text-[13px]"
-                    style={{ color: '#d81b8a' }}
-                  >
-                    Sacar de la tienda
-                  </button>
+                  {product.branchActive === false ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRestore(product.productBranchId)}
+                      className="text-[13px]"
+                      style={{ color: '#16a34a' }}
+                    >
+                      Reactivar
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(product.productBranchId, product.name)}
+                      className="text-[13px]"
+                      style={{ color: '#d81b8a' }}
+                    >
+                      Sacar de la tienda
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

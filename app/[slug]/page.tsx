@@ -87,11 +87,11 @@ export default async function HomePage({
 
       {/* Features strip */}
       <section style={{ borderTop: '1px solid #e5e5e5', borderBottom: '1px solid #e5e5e5', backgroundColor: '#ffffff' }}>
-        <div className="mx-auto max-w-[1200px] px-6 py-14 grid grid-cols-2 gap-8 md:grid-cols-4">
+        <div className="mx-auto max-w-[1200px] px-6 py-14 flex flex-wrap justify-center gap-x-16 gap-y-8">
           {features.map((f) => {
             const Icon = (f.icon && FEATURE_ICONS[f.icon]) || Sparkles
             return (
-              <div key={f.title} className="flex flex-col gap-3">
+              <div key={f.title} className="flex w-[220px] flex-col items-center gap-3 text-center">
                 <Icon size={22} strokeWidth={1.5} style={{ color: 'var(--color-accent)' }} aria-hidden="true" />
                 <div className="flex flex-col gap-1">
                   <span className="text-[13px] font-medium" style={{ color: '#111111' }}>{f.title}</span>

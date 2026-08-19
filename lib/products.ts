@@ -11,6 +11,7 @@ export type Product = {
   price: number | null
   stock: number | null
   productBranchId?: string
+  branchActive?: boolean
 }
 
 export function productImage(product: Product): string {

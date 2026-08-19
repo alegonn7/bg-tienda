@@ -80,12 +80,26 @@ export async function updateProduct(id: string, productBranchId: string, data: P
   revalidateStorefront()
 }
 
-// Solo saca el producto de la tienda online (borra su fila de products_branch en la sucursal
-// online) — NO borra el producto "maestro" (products), que puede seguir en uso en otras
-// sucursales de bg-gestion. Un delete real del maestro no es una operación segura desde acá.
+// Saca el producto de la tienda online — desactiva su fila de products_branch (is_active=false)
+// en vez de borrarla. store_catalog ya filtra por pb.is_active = true, así que esto alcanza para
+// que deje de aparecer en la tienda. No se borra nada: es reversible (restoreProductToStore) y
+// no arriesga romper un delete real con historial de ventas/movimientos ligados a esa fila.
 export async function removeProductFromStore(productBranchId: string) {
   const supabase = await createClient()
-  const { error } = await supabase.from('products_branch').delete().eq('id', productBranchId)
+  const { error } = await supabase
+    .from('products_branch')
+    .update({ is_active: false })
+    .eq('id', productBranchId)
+  if (error) throw new Error(error.message)
+  revalidateStorefront()
+}
+
+export async function restoreProductToStore(productBranchId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('products_branch')
+    .update({ is_active: true })
+    .eq('id', productBranchId)
   if (error) throw new Error(error.message)
   revalidateStorefront()
 }

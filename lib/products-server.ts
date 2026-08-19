@@ -89,7 +89,7 @@ type AdminRow = {
   featured: boolean
   created_at: string
   categories: { name: string } | null
-  products_branch: { id: string; price_sale: number | null; stock_quantity: number | null }[]
+  products_branch: { id: string; price_sale: number | null; stock_quantity: number | null; is_active: boolean }[]
 }
 
 function mapAdminRow(row: AdminRow): Product {
@@ -107,10 +107,11 @@ function mapAdminRow(row: AdminRow): Product {
     price: branch?.price_sale ?? null,
     stock: branch?.stock_quantity ?? null,
     productBranchId: branch?.id,
+    branchActive: branch?.is_active ?? true,
   }
 }
 
-const ADMIN_SELECT = '*, categories(name), products_branch!inner(id, price_sale, stock_quantity)'
+const ADMIN_SELECT = '*, categories(name), products_branch!inner(id, price_sale, stock_quantity, is_active)'
 
 export async function getAdminProducts(onlineBranchId: string): Promise<Product[]> {
   const supabase = await createClient()
