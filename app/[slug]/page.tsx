@@ -81,7 +81,7 @@ export default async function HomePage({
               Más vendidos
             </h2>
           </div>
-          <FeaturedCarousel products={featured} slug={slug} />
+          <FeaturedCarousel products={featured} slug={slug} showPrices={store.showPrices} />
         </section>
       )}
 
@@ -116,7 +116,7 @@ export default async function HomePage({
         {preview.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {preview.map((product) => (
-              <ProductCard key={product.id} product={product} slug={slug} />
+              <ProductCard key={product.id} product={product} slug={slug} showPrices={store.showPrices} />
             ))}
           </div>
         ) : (

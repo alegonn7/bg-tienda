@@ -6,10 +6,12 @@ export function ProductCard({
   product,
   slug,
   bordered = true,
+  showPrices = false,
 }: {
   product: Product
   slug: string
   bordered?: boolean
+  showPrices?: boolean
 }) {
   return (
     <div
@@ -43,8 +45,8 @@ export function ProductCard({
         </p>
         {bordered ? (
           <>
-            <p className="mt-3 text-[13px]" style={{ color: '#6b6b6b' }}>
-              Consultá precio
+            <p className="mt-3 text-[13px]" style={{ color: showPrices && product.price != null ? '#111111' : '#6b6b6b' }}>
+              {showPrices && product.price != null ? `$${product.price}` : 'Consultá precio'}
             </p>
             <Link
               href={`/${slug}/productos/${product.id}`}

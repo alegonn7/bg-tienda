@@ -18,7 +18,7 @@ export default async function ProductsPage({
   return (
     <SiteShell store={store}>
       <section className="mx-auto max-w-[1200px] px-6 py-16">
-        <ProductsClient products={products} slug={slug} />
+        <ProductsClient products={products} slug={slug} showPrices={store.showPrices} />
       </section>
     </SiteShell>
   )

@@ -15,6 +15,7 @@ export function CartDrawer({ store }: { store: Store }) {
   const { items, isOpen, closeCart, removeItem, updateQuantity } = useCart()
   const brandName = store.storeName ?? store.organizationName
   const [sending, setSending] = useState(false)
+  const subtotal = items.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0)
 
   async function handleCheckout() {
     setSending(true)
@@ -77,6 +78,7 @@ export function CartDrawer({ store }: { store: Store }) {
                 <CartRow
                   key={item.key}
                   item={item}
+                  showPrices={store.showPrices}
                   onRemove={() => removeItem(item.key)}
                   onDec={() => updateQuantity(item.key, item.quantity - 1)}
                   onInc={() => updateQuantity(item.key, item.quantity + 1)}
@@ -99,7 +101,7 @@ export function CartDrawer({ store }: { store: Store }) {
                 className="text-[14px] font-medium"
                 style={{ color: '#111111' }}
               >
-                A confirmar
+                {store.showPrices ? `$${subtotal}` : 'A confirmar'}
               </span>
             </div>
             <button
@@ -122,11 +124,13 @@ export function CartDrawer({ store }: { store: Store }) {
 
 function CartRow({
   item,
+  showPrices,
   onRemove,
   onDec,
   onInc,
 }: {
   item: CartItem
+  showPrices: boolean
   onRemove: () => void
   onDec: () => void
   onInc: () => void
@@ -167,6 +171,7 @@ function CartRow({
         </div>
         <p className="mt-1 text-[13px]" style={{ color: '#6b6b6b' }}>
           {item.product.category}{item.size ? ` · ${item.size}` : ''}
+          {showPrices && item.product.price != null ? ` · $${item.product.price}` : ''}
         </p>
         <div className="mt-3 inline-flex w-fit items-center">
           <button

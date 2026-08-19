@@ -7,9 +7,11 @@ import type { Product } from '@/lib/products'
 export function ProductsClient({
   products,
   slug,
+  showPrices = false,
 }: {
   products: Product[]
   slug: string
+  showPrices?: boolean
 }) {
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set())
   const [activeSizes, setActiveSizes] = useState<Set<string>>(new Set())
@@ -166,7 +168,7 @@ export function ProductsClient({
           </p>
         ) : (
           filtered.map((product) => (
-            <ProductCard key={product.id} product={product} slug={slug} />
+            <ProductCard key={product.id} product={product} slug={slug} showPrices={showPrices} />
           ))
         )}
       </div>

@@ -60,6 +60,11 @@ export default async function ProductDetailPage({
             >
               {product.name}
             </h1>
+            {store.showPrices && product.price != null && (
+              <p className="mt-3 text-[22px] font-medium" style={{ color: '#111111' }}>
+                ${product.price}
+              </p>
+            )}
             <div
               className="my-6"
               style={{ borderTop: '1px solid #e5e5e5' }}
@@ -112,7 +117,7 @@ export default async function ProductDetailPage({
             />
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {related.map((p) => (
-                <ProductCard key={p.id} product={p} slug={slug} />
+                <ProductCard key={p.id} product={p} slug={slug} showPrices={store.showPrices} />
               ))}
             </div>
           </div>

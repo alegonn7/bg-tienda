@@ -5,7 +5,15 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { ProductCard } from '@/components/product-card'
 import type { Product } from '@/lib/products'
 
-export function FeaturedCarousel({ products, slug }: { products: Product[]; slug: string }) {
+export function FeaturedCarousel({
+  products,
+  slug,
+  showPrices = false,
+}: {
+  products: Product[]
+  slug: string
+  showPrices?: boolean
+}) {
   const ref = useRef<HTMLDivElement>(null)
 
   function scroll(dir: 'left' | 'right') {
@@ -48,7 +56,7 @@ export function FeaturedCarousel({ products, slug }: { products: Product[]; slug
       >
         {products.map((product) => (
           <div key={product.id} className="w-[300px] flex-shrink-0">
-            <ProductCard product={product} slug={slug} />
+            <ProductCard product={product} slug={slug} showPrices={showPrices} />
           </div>
         ))}
       </div>
