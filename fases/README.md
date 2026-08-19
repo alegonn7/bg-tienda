@@ -17,11 +17,12 @@ está en [00-contexto-y-decisiones.md](00-contexto-y-decisiones.md) — leer eso
 | [04](terminadas/04-multitenancy-routing-ecomerse.md) | Multi-tenancy, routing y corte de base | `ecomerse` resuelve la tienda por slug y lee/escribe contra la base compartida | ✅ Hecho (2026-08-19) — branding sigue hardcodeado a propósito, ver Fase 05 |
 | [05](terminadas/05-auth-rls-branding.md) | Auth/RLS real + branding dinámico | Scoping real por organización (RLS + `/admin`) y sacar todo el hardcodeo de "PinsCrew" | ✅ Hecho (2026-08-19) |
 | [06](terminadas/06-flujo-pedidos.md) | Flujo de pedidos | Pedido por WhatsApp queda persistido; confirmarlo descuenta stock de verdad | ✅ Hecho (2026-08-19) |
-| [07](07-prueba-end-to-end.md) | Prueba end-to-end | Primera tienda real de punta a punta + la validación de concurrencia/aislamiento que la Fase 01 dejó pendiente | Pendiente |
+| [07](terminadas/07-prueba-end-to-end.md) | Prueba end-to-end | Tienda de prueba real: pedido, confirmación, stock atómico y el caso de stock insuficiente, verificados contra la base real | ✅ Hecho (2026-08-19) |
 | [08](08-futuro.md) | Futuro (fuera de esta ronda) | Dominios propios, checkout con pago online, cerrar deuda técnica menor | Futuro |
 
-Todo el código está hecho (Fases 01-06). Solo falta la Fase 07: probar todo esto con una tienda
-real de punta a punta.
+**Las 7 fases están hechas y verificadas.** Lo único que no se probó todavía es un login real por
+navegador con una tienda dada de alta de verdad (no de prueba) — eso pasa naturalmente cuando se
+dé de alta el primer cliente real desde `admin-gestion`.
 
 ## Decisiones que ya no están en discusión
 
