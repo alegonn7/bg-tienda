@@ -232,6 +232,24 @@ export async function updateStoreBranding(data: StoreBrandingData) {
   revalidateStorefront()
 }
 
+// Favicon — el ícono de la pestaña del navegador, propio de cada tienda (store_settings.favicon_url).
+// Funciona por tienda porque cada ruta /[slug] define su propio <link rel="icon"> vía
+// generateMetadata (ver app/[slug]/layout.tsx) — no es un único favicon para todo el dominio.
+// Si una tienda no carga uno, cae al default compartido (/favicon.png).
+export async function updateStoreFavicon(faviconUrl: string) {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('store_settings')
+    .update({ favicon_url: faviconUrl })
+    .eq('id', ctx.storeSettingsId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/configuracion')
+  revalidateStorefront()
+}
+
 // Logo — vive en organizations.logo_url, el mismo campo que ya usa bg-gestion, así que
 // cambiarlo acá también lo actualiza ahí. RLS solo deja actualizar "organizations" al
 // owner de la organización (ver policy "Owners can update their organization"); si un

@@ -64,6 +64,7 @@ export type AdminOrgContext = {
   onlineBranchId: string
   storeSettingsId: string
   logoUrl: string | null
+  faviconUrl: string | null
 }
 
 // Resuelve la organización del usuario logueado a partir de su sesión (nunca de la URL — ver
@@ -88,7 +89,7 @@ export const getCurrentOrgForAdmin = cache(async (): Promise<AdminOrgContext | n
 
   const { data: storeSettings } = await supabase
     .from('store_settings')
-    .select('id, branch_id, enabled, store_name')
+    .select('id, branch_id, enabled, store_name, favicon_url')
     .eq('organization_id', userRow.organization_id)
     .maybeSingle()
 
@@ -106,5 +107,6 @@ export const getCurrentOrgForAdmin = cache(async (): Promise<AdminOrgContext | n
     onlineBranchId: storeSettings.branch_id,
     storeSettingsId: storeSettings.id,
     logoUrl: org?.logo_url ?? null,
+    faviconUrl: storeSettings.favicon_url,
   }
 })
