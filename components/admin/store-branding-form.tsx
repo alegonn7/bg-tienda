@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateStoreBranding } from '@/app/admin/actions'
+import { FEATURE_ICONS, FEATURE_ICON_KEYS } from '@/lib/feature-icons'
 
-type Feature = { title: string; text: string }
+type Feature = { title: string; text: string; icon?: string }
 
 type StoreSettings = {
   store_name: string | null
@@ -18,12 +19,15 @@ type StoreSettings = {
   features: Feature[] | null
 }
 
-const EMPTY_FEATURE: Feature = { title: '', text: '' }
+const EMPTY_FEATURE: Feature = { title: '', text: '', icon: 'star' }
 const FEATURE_SLOTS = 3
 
 function initialFeatures(features: Feature[] | null): Feature[] {
-  const base = Array.isArray(features) ? features : []
-  const padded = [...base]
+  const base: Feature[] = (Array.isArray(features) ? features : []).map((f) => ({
+    ...f,
+    icon: f.icon ?? 'star',
+  }))
+  const padded: Feature[] = [...base]
   while (padded.length < FEATURE_SLOTS) padded.push({ ...EMPTY_FEATURE })
   return padded.slice(0, FEATURE_SLOTS)
 }
@@ -141,25 +145,49 @@ export function StoreBrandingForm({ store, slug }: { store: StoreSettings; slug:
         <label className="block text-[12px] uppercase" style={labelStyle}>
           Franja de destacados (los 3 puntos debajo del inicio)
         </label>
-        <div className="mt-2 flex flex-col gap-3">
+        <div className="mt-2 flex flex-col gap-4">
           {features.map((f, i) => (
-            <div key={i} className="grid grid-cols-2 gap-3">
-              <input
-                type="text"
-                value={f.title}
-                onChange={(e) => setFeature(i, 'title', e.target.value)}
-                placeholder={`Título ${i + 1}`}
-                className="px-4 py-2.5 text-[14px] outline-none"
-                style={inputStyle}
-              />
-              <input
-                type="text"
-                value={f.text}
-                onChange={(e) => setFeature(i, 'text', e.target.value)}
-                placeholder={`Descripción ${i + 1}`}
-                className="px-4 py-2.5 text-[14px] outline-none"
-                style={inputStyle}
-              />
+            <div key={i} className="flex flex-col gap-2 p-3" style={{ border: '1px solid #f0f0ee' }}>
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={f.title}
+                  onChange={(e) => setFeature(i, 'title', e.target.value)}
+                  placeholder={`Título ${i + 1}`}
+                  className="px-4 py-2.5 text-[14px] outline-none"
+                  style={inputStyle}
+                />
+                <input
+                  type="text"
+                  value={f.text}
+                  onChange={(e) => setFeature(i, 'text', e.target.value)}
+                  placeholder={`Descripción ${i + 1}`}
+                  className="px-4 py-2.5 text-[14px] outline-none"
+                  style={inputStyle}
+                />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {FEATURE_ICON_KEYS.map((key) => {
+                  const Icon = FEATURE_ICONS[key]
+                  const isSelected = (f.icon ?? 'star') === key
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setFeature(i, 'icon', key)}
+                      className="flex h-8 w-8 items-center justify-center"
+                      style={{
+                        border: `1px solid ${isSelected ? '#111111' : '#e5e5e5'}`,
+                        backgroundColor: isSelected ? '#111111' : '#fff',
+                        color: isSelected ? '#fff' : '#6b6b6b',
+                      }}
+                      title={key}
+                    >
+                      <Icon size={15} strokeWidth={1.5} />
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           ))}
         </div>

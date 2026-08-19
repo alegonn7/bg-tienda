@@ -126,6 +126,26 @@ export async function deleteCategory(id: string) {
   revalidateStorefront()
 }
 
+// Tamaños
+export async function createSize(name: string) {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('sizes')
+    .insert({ name, organization_id: ctx.organizationId })
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/tamanos')
+}
+
+export async function deleteSize(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('sizes').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/tamanos')
+}
+
 // Hero images
 export async function deleteHeroImage(id: string) {
   const supabase = await createClient()
@@ -169,7 +189,7 @@ type StoreBrandingData = {
   instagramUrl: string
   facebookUrl: string
   showPrices: boolean
-  features: { title: string; text: string }[]
+  features: { title: string; text: string; icon?: string }[]
 }
 
 export async function updateStoreBranding(data: StoreBrandingData) {
@@ -190,7 +210,7 @@ export async function updateStoreBranding(data: StoreBrandingData) {
       show_prices: data.showPrices,
       features: data.features
         .filter((f) => f.title.trim())
-        .map((f) => ({ title: f.title.trim(), text: f.text.trim() })),
+        .map((f) => ({ title: f.title.trim(), text: f.text.trim(), icon: f.icon ?? 'star' })),
     })
     .eq('id', ctx.storeSettingsId)
   if (error) throw new Error(error.message)

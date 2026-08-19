@@ -11,10 +11,11 @@ type Item = { id: string; name: string }
 type Props = {
   product?: Product
   categories: Item[]
+  sizes: Item[]
   organizationId: string
 }
 
-export function ProductForm({ product, categories, organizationId }: Props) {
+export function ProductForm({ product, categories, sizes: availableSizes, organizationId }: Props) {
   const isEdit = !!product
   const router = useRouter()
   const supabase = createClient()
@@ -25,7 +26,6 @@ export function ProductForm({ product, categories, organizationId }: Props) {
   const [description, setDescription] = useState(product?.description ?? '')
   const [images, setImages] = useState<string[]>(product?.images ?? [])
   const [sizes, setSizes] = useState<string[]>(product?.sizes ?? [])
-  const [sizeInput, setSizeInput] = useState('')
   const [active, setActive] = useState(product?.active ?? true)
   const [price, setPrice] = useState(product?.price?.toString() ?? '0')
   const [stock, setStock] = useState(product?.stock?.toString() ?? '0')
@@ -33,15 +33,8 @@ export function ProductForm({ product, categories, organizationId }: Props) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  function addSize() {
-    const value = sizeInput.trim()
-    if (!value || sizes.includes(value)) return
-    setSizes((prev) => [...prev, value])
-    setSizeInput('')
-  }
-
-  function removeSize(size: string) {
-    setSizes((prev) => prev.filter((s) => s !== size))
+  function toggleSize(name: string) {
+    setSizes((prev) => (prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name]))
   }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -203,51 +196,42 @@ export function ProductForm({ product, categories, organizationId }: Props) {
         </div>
       </div>
 
-      {/* Tamaños (texto libre — sin tabla de medidas separada, ver Fase 04) */}
+      {/* Tamaños: se eligen de la lista de la organización (/admin/tamanos), no texto libre —
+          así el mismo tamaño se llama siempre igual y el filtro de la tienda funciona. */}
       <div>
         <label className="block text-[12px] uppercase" style={{ letterSpacing: '0.06em', color: '#6b6b6b' }}>
           Tamaños disponibles
         </label>
-        {sizes.length > 0 && (
+        {availableSizes.length === 0 ? (
+          <p className="mt-2 text-[13px]" style={{ color: '#d81b8a' }}>
+            No hay tamaños creados. Andá a{' '}
+            <a href="/admin/tamanos" style={{ textDecoration: 'underline' }}>
+              Tamaños
+            </a>{' '}
+            y agregá algunos primero.
+          </p>
+        ) : (
           <div className="mt-3 flex flex-wrap gap-2">
-            {sizes.map((size) => (
-              <span
-                key={size}
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-[13px]"
-                style={{ border: '1px solid #111111', color: '#111111' }}
-              >
-                {size}
-                <button type="button" onClick={() => removeSize(size)} aria-label={`Quitar ${size}`}>
-                  ×
+            {availableSizes.map((size) => {
+              const isSelected = sizes.includes(size.name)
+              return (
+                <button
+                  key={size.id}
+                  type="button"
+                  onClick={() => toggleSize(size.name)}
+                  className="px-4 py-2 text-[13px]"
+                  style={{
+                    border: `1px solid ${isSelected ? '#111111' : '#e5e5e5'}`,
+                    backgroundColor: isSelected ? '#111111' : '#fff',
+                    color: isSelected ? '#fff' : '#6b6b6b',
+                  }}
+                >
+                  {size.name}
                 </button>
-              </span>
-            ))}
+              )
+            })}
           </div>
         )}
-        <div className="mt-3 flex gap-2">
-          <input
-            type="text"
-            value={sizeInput}
-            onChange={(e) => setSizeInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                addSize()
-              }
-            }}
-            placeholder="Ej: 25mm"
-            className="flex-1 px-4 py-2.5 text-[14px] outline-none"
-            style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
-          />
-          <button
-            type="button"
-            onClick={addSize}
-            className="px-4 py-2.5 text-[13px]"
-            style={{ border: '1px solid #111111', color: '#111111' }}
-          >
-            + Agregar
-          </button>
-        </div>
       </div>
 
       {/* Imágenes */}

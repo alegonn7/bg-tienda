@@ -7,11 +7,13 @@ import { FeaturedCarousel } from '@/components/featured-carousel'
 import { HeroSlider } from '@/components/hero-slider'
 import { getStoreBySlug } from '@/lib/tenant'
 import { createClient } from '@/lib/supabase/server'
+import { FEATURE_ICONS } from '@/lib/feature-icons'
+import { Sparkles } from 'lucide-react'
 
 const DEFAULT_FEATURES = [
-  { title: 'Tu marca', text: 'Productos con tu identidad' },
-  { title: 'Atención directa', text: 'Coordinás todo por WhatsApp' },
-  { title: 'Fácil de pedir', text: 'Elegís, consultás y listo' },
+  { title: 'Tu marca', text: 'Productos con tu identidad', icon: 'tag' },
+  { title: 'Atención directa', text: 'Coordinás todo por WhatsApp', icon: 'chat' },
+  { title: 'Fácil de pedir', text: 'Elegís, consultás y listo', icon: 'check' },
 ]
 
 export default async function HomePage({
@@ -86,15 +88,18 @@ export default async function HomePage({
       {/* Features strip */}
       <section style={{ borderTop: '1px solid #e5e5e5', borderBottom: '1px solid #e5e5e5', backgroundColor: '#ffffff' }}>
         <div className="mx-auto max-w-[1200px] px-6 py-14 grid grid-cols-2 gap-8 md:grid-cols-4">
-          {features.map((f) => (
-            <div key={f.title} className="flex flex-col gap-3">
-              <span className="block h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--color-accent)' }} aria-hidden="true" />
-              <div className="flex flex-col gap-1">
-                <span className="text-[13px] font-medium" style={{ color: '#111111' }}>{f.title}</span>
-                <span className="text-[13px]" style={{ color: '#6b6b6b' }}>{f.text}</span>
+          {features.map((f) => {
+            const Icon = (f.icon && FEATURE_ICONS[f.icon]) || Sparkles
+            return (
+              <div key={f.title} className="flex flex-col gap-3">
+                <Icon size={22} strokeWidth={1.5} style={{ color: 'var(--color-accent)' }} aria-hidden="true" />
+                <div className="flex flex-col gap-1">
+                  <span className="text-[13px] font-medium" style={{ color: '#111111' }}>{f.title}</span>
+                  <span className="text-[13px]" style={{ color: '#6b6b6b' }}>{f.text}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </section>
 

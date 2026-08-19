@@ -45,6 +45,9 @@ export default async function AdminLayout({
               <Link href="/admin/categorias" className="text-[13px]" style={{ color: '#6b6b6b' }}>
                 Categorías
               </Link>
+              <Link href="/admin/tamanos" className="text-[13px]" style={{ color: '#6b6b6b' }}>
+                Tamaños
+              </Link>
               <Link href="/admin/hero" className="text-[13px]" style={{ color: '#6b6b6b' }}>
                 Banner
               </Link>

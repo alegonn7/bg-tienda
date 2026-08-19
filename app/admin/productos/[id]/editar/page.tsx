@@ -15,9 +15,10 @@ export default async function EditarProductoPage({
   if (!ctx) notFound()
 
   const supabase = await createClient()
-  const [product, { data: categories }] = await Promise.all([
+  const [product, { data: categories }, { data: sizes }] = await Promise.all([
     getAdminProduct(ctx.onlineBranchId, id),
     supabase.from('categories').select('*').order('name'),
+    supabase.from('sizes').select('*').order('name'),
   ])
 
   if (!product) notFound()
@@ -37,7 +38,12 @@ export default async function EditarProductoPage({
       </div>
 
       <div className="p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
-        <ProductForm product={product} categories={categories ?? []} organizationId={ctx.organizationId} />
+        <ProductForm
+          product={product}
+          categories={categories ?? []}
+          sizes={sizes ?? []}
+          organizationId={ctx.organizationId}
+        />
       </div>
     </div>
   )

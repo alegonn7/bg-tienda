@@ -18,7 +18,7 @@ export type Store = {
   paymentOnlineEnabled: boolean
   heroTitle: string | null
   heroSubtitle: string | null
-  features: { title: string; text: string }[]
+  features: { title: string; text: string; icon?: string }[]
 }
 
 // Resuelve slug -> tienda pública. Usa la vista store_directory (Fase 01), que ya filtra por
