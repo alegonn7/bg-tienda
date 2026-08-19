@@ -15,14 +15,11 @@ const geistMono = Geist_Mono({
 
 // Metadata específico de cada tienda (título, favicon) se resuelve en app/[slug]/layout.tsx,
 // que la sobreescribe. Esto queda como fallback neutro para /admin y para el caso de una URL
-// sin slug.
+// sin slug. El ícono default sale de app/icon.png (convención de archivo de Next — no se
+// declara acá a mano para no pisarse con la generación automática de /favicon.ico).
 export const metadata: Metadata = {
   title: 'bg-tienda',
   description: 'Tiendas online de bg-tienda.',
-  icons: {
-    icon: '/favicon.png',
-    apple: '/favicon.png',
-  },
 }
 
 export default function RootLayout({
