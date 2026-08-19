@@ -157,6 +157,43 @@ export async function cancelOrder(orderId: string) {
   revalidatePath('/admin/pedidos')
 }
 
+// Branding de la tienda — nombre público, textos del hero, color, contacto. El slug (URL de la
+// tienda) NO se edita desde acá a propósito: cambiarlo rompe links ya compartidos, queda del
+// lado de admin-gestion/soporte.
+type StoreBrandingData = {
+  storeName: string
+  heroTitle: string
+  heroSubtitle: string
+  accentColor: string
+  whatsappNumber: string
+  instagramUrl: string
+  facebookUrl: string
+  showPrices: boolean
+}
+
+export async function updateStoreBranding(data: StoreBrandingData) {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('store_settings')
+    .update({
+      store_name: data.storeName || null,
+      hero_title: data.heroTitle || null,
+      hero_subtitle: data.heroSubtitle || null,
+      accent_color: data.accentColor || null,
+      whatsapp_number: data.whatsappNumber || null,
+      instagram_url: data.instagramUrl || null,
+      facebook_url: data.facebookUrl || null,
+      show_prices: data.showPrices,
+    })
+    .eq('id', ctx.storeSettingsId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/configuracion')
+  revalidateStorefront()
+}
+
 // Favicon (antes vivía en la tabla genérica "settings" de Pins-crew — ahora es
 // store_settings.favicon_url, por organización).
 export async function updateStoreFavicon(faviconUrl: string) {

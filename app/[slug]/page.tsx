@@ -91,14 +91,13 @@ export default async function HomePage({
         >
           <span className="mb-10 block h-px w-10 mx-auto" style={{ backgroundColor: 'var(--color-accent)' }} aria-hidden="true" />
           <h1 className="text-balance text-[44px] font-medium leading-[1.1] sm:text-[56px] md:text-[64px]" style={{ color: '#111111' }}>
-            Tus pins,
-            <br />
-            a tu manera.
+            {store.heroTitle || `Bienvenido a ${brandName}`}
           </h1>
-          <p className="mt-6 max-w-[480px] mx-auto text-[16px]" style={{ color: '#333333' }}>
-            Pins personalizados en todos los formatos: llaveros,
-            imanes, destapadores y más. Envíos a todo el país.
-          </p>
+          {store.heroSubtitle && (
+            <p className="mt-6 max-w-[480px] mx-auto text-[16px]" style={{ color: '#333333' }}>
+              {store.heroSubtitle}
+            </p>
+          )}
           <Link href={`/${slug}/productos`} className="pc-btn mt-10 px-6 py-3 text-[14px]">
             Ver productos →
           </Link>

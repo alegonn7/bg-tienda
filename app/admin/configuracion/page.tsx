@@ -1,11 +1,24 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import { getCurrentOrgForAdmin } from '@/lib/tenant'
 import { FaviconManager } from '@/components/admin/favicon-manager'
+import { StoreBrandingForm } from '@/components/admin/store-branding-form'
 
 export default async function ConfiguracionPage() {
   const ctx = await getCurrentOrgForAdmin()
   if (!ctx) notFound()
+
+  const supabase = await createClient()
+  const { data: storeSettings } = await supabase
+    .from('store_settings')
+    .select(
+      'store_name, hero_title, hero_subtitle, accent_color, whatsapp_number, instagram_url, facebook_url, show_prices'
+    )
+    .eq('id', ctx.storeSettingsId)
+    .single()
+
+  if (!storeSettings) notFound()
 
   return (
     <div className="mx-auto max-w-[700px] px-8 py-10">
@@ -16,6 +29,16 @@ export default async function ConfiguracionPage() {
         <h1 className="mt-4 text-[24px] font-medium" style={{ color: '#111111' }}>
           Configuración
         </h1>
+      </div>
+
+      <div className="mb-8 p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
+        <h2 className="mb-1 text-[15px] font-medium" style={{ color: '#111111' }}>
+          Tu tienda
+        </h2>
+        <p className="mb-6 text-[13px]" style={{ color: '#6b6b6b' }}>
+          Cómo se ve y se presenta tu tienda hacia tus clientes.
+        </p>
+        <StoreBrandingForm store={storeSettings} slug={ctx.organizationSlug} />
       </div>
 
       <div className="p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>

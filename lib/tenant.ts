@@ -16,6 +16,8 @@ export type Store = {
   facebookUrl: string | null
   showPrices: boolean
   paymentOnlineEnabled: boolean
+  heroTitle: string | null
+  heroSubtitle: string | null
 }
 
 // Resuelve slug -> tienda pública. Usa la vista store_directory (Fase 01), que ya filtra por
@@ -45,6 +47,8 @@ export const getStoreBySlug = cache(async (slug: string): Promise<Store | null> 
     facebookUrl: data.facebook_url,
     showPrices: data.show_prices,
     paymentOnlineEnabled: data.payment_online_enabled,
+    heroTitle: data.hero_title,
+    heroSubtitle: data.hero_subtitle,
   }
 })
 
