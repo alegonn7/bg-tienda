@@ -14,7 +14,7 @@ export default async function ConfiguracionPage() {
   const { data: storeSettings } = await supabase
     .from('store_settings')
     .select(
-      'store_name, hero_title, hero_subtitle, accent_color, whatsapp_number, instagram_url, facebook_url, show_prices, features'
+      'store_name, hero_title, hero_subtitle, accent_color, whatsapp_number, instagram_url, facebook_url, show_prices, features, logo_height, header_display'
     )
     .eq('id', ctx.storeSettingsId)
     .single()
@@ -49,7 +49,12 @@ export default async function ConfiguracionPage() {
         <p className="mb-6 text-[13px]" style={{ color: '#6b6b6b' }}>
           Aparece arriba a la izquierda, al lado del nombre de la tienda.
         </p>
-        <LogoManager current={ctx.logoUrl} organizationId={ctx.organizationId} />
+        <LogoManager
+          current={ctx.logoUrl}
+          organizationId={ctx.organizationId}
+          initialHeight={storeSettings.logo_height}
+          initialDisplay={storeSettings.header_display}
+        />
       </div>
 
       <div className="p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>

@@ -3,15 +3,35 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { updateStoreLogo } from '@/app/admin/actions'
+import { updateStoreLogo, updateStoreLogoDisplay } from '@/app/admin/actions'
 
-export function LogoManager({ current, organizationId }: { current: string | null; organizationId: string }) {
+const MIN_HEIGHT = 16
+const MAX_HEIGHT = 56
+
+type HeaderDisplay = 'logo' | 'name' | 'both'
+
+export function LogoManager({
+  current,
+  organizationId,
+  initialHeight,
+  initialDisplay,
+}: {
+  current: string | null
+  organizationId: string
+  initialHeight: number
+  initialDisplay: string
+}) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState(current)
   const [error, setError] = useState('')
   const router = useRouter()
   const supabase = createClient()
+
+  const [height, setHeight] = useState(initialHeight)
+  const [display, setDisplay] = useState<HeaderDisplay>((initialDisplay as HeaderDisplay) ?? 'logo')
+  const [savingDisplay, setSavingDisplay] = useState(false)
+  const [displaySaved, setDisplaySaved] = useState(false)
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -50,40 +70,128 @@ export function LogoManager({ current, organizationId }: { current: string | nul
     }
   }
 
+  async function handleSaveDisplay() {
+    setSavingDisplay(true)
+    setDisplaySaved(false)
+    try {
+      await updateStoreLogoDisplay({ logoHeight: height, headerDisplay: display })
+      setDisplaySaved(true)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error guardando la configuración.')
+    } finally {
+      setSavingDisplay(false)
+    }
+  }
+
   return (
-    <div className="flex items-start gap-8">
-      <div
-        className="flex h-24 w-24 flex-shrink-0 items-center justify-center"
-        style={{ border: '1px solid #e5e5e5', backgroundColor: '#fafaf9' }}
-      >
-        {preview ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt="Logo actual" className="h-16 w-16 object-contain" />
-        ) : (
-          <span className="text-[12px]" style={{ color: '#6b6b6b' }}>Sin logo</span>
-        )}
+    <div className="flex flex-col gap-8">
+      <div className="flex items-start gap-8">
+        <div
+          className="flex h-24 w-24 flex-shrink-0 items-center justify-center"
+          style={{ border: '1px solid #e5e5e5', backgroundColor: '#fafaf9' }}
+        >
+          {preview ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={preview} alt="Logo actual" className="h-16 w-16 object-contain" />
+          ) : (
+            <span className="text-[12px]" style={{ color: '#6b6b6b' }}>Sin logo</span>
+          )}
+        </div>
+
+        <div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/png,image/svg+xml,image/jpeg"
+            onChange={handleUpload}
+            className="hidden"
+            id="logo-upload"
+          />
+          <label
+            htmlFor="logo-upload"
+            className="inline-flex cursor-pointer items-center px-4 py-2.5 text-[13px]"
+            style={{ border: '1px solid #e5e5e5', color: uploading ? '#6b6b6b' : '#111111', backgroundColor: '#fff' }}
+          >
+            {uploading ? 'Subiendo...' : 'Cambiar logo'}
+          </label>
+          <p className="mt-2 text-[12px]" style={{ color: '#6b6b6b' }}>
+            PNG o SVG, idealmente cuadrado. Se usa en la tienda online y en bg-gestion.
+          </p>
+          {error && <p className="mt-2 text-[13px]" style={{ color: '#d81b8a' }}>{error}</p>}
+        </div>
       </div>
 
-      <div>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/png,image/svg+xml,image/jpeg"
-          onChange={handleUpload}
-          className="hidden"
-          id="logo-upload"
-        />
-        <label
-          htmlFor="logo-upload"
-          className="inline-flex cursor-pointer items-center px-4 py-2.5 text-[13px]"
-          style={{ border: '1px solid #e5e5e5', color: uploading ? '#6b6b6b' : '#111111', backgroundColor: '#fff' }}
-        >
-          {uploading ? 'Subiendo...' : 'Cambiar logo'}
-        </label>
-        <p className="mt-2 text-[12px]" style={{ color: '#6b6b6b' }}>
-          PNG o SVG, idealmente cuadrado. Se usa en la tienda online y en bg-gestion.
+      <div style={{ borderTop: '1px solid #e5e5e5', paddingTop: '24px' }}>
+        <p className="mb-3 text-[13px] font-medium" style={{ color: '#111111' }}>
+          Qué mostrar arriba a la izquierda
         </p>
-        {error && <p className="mt-2 text-[13px]" style={{ color: '#d81b8a' }}>{error}</p>}
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              { value: 'logo', label: 'Solo el logo' },
+              { value: 'name', label: 'Solo el nombre' },
+              { value: 'both', label: 'Logo y nombre' },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => {
+                setDisplay(opt.value)
+                setDisplaySaved(false)
+              }}
+              className="px-3 py-1.5 text-[12px]"
+              style={{
+                border: `1px solid ${display === opt.value ? '#111111' : '#e5e5e5'}`,
+                backgroundColor: display === opt.value ? '#111111' : '#fff',
+                color: display === opt.value ? '#fff' : '#6b6b6b',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {display !== 'name' && (
+          <div className="mt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[13px] font-medium" style={{ color: '#111111' }}>
+                Tamaño del logo
+              </p>
+              <span className="text-[12px]" style={{ color: '#6b6b6b' }}>{height}px</span>
+            </div>
+            <input
+              type="range"
+              min={MIN_HEIGHT}
+              max={MAX_HEIGHT}
+              value={height}
+              onChange={(e) => {
+                setHeight(Number(e.target.value))
+                setDisplaySaved(false)
+              }}
+              className="w-full max-w-[280px]"
+            />
+            {preview && (
+              <div
+                className="mt-4 flex h-16 items-center px-4"
+                style={{ border: '1px solid #e5e5e5', backgroundColor: '#fafaf9' }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={preview} alt="Vista previa" style={{ height: `${height}px`, width: 'auto', objectFit: 'contain' }} />
+              </div>
+            )}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleSaveDisplay}
+          disabled={savingDisplay}
+          className="pc-btn mt-6 px-5 py-2.5 text-[13px] disabled:opacity-60"
+        >
+          {savingDisplay ? 'Guardando...' : displaySaved ? 'Guardado ✓' : 'Guardar'}
+        </button>
       </div>
     </div>
   )

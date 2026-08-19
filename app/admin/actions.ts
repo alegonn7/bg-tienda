@@ -270,3 +270,19 @@ export async function updateStoreLogo(logoUrl: string) {
   revalidatePath('/admin/configuracion')
   revalidateStorefront()
 }
+
+// Cómo se ve la marca en el navbar: tamaño del logo (px) y si se muestra el logo, el nombre,
+// o los dos juntos.
+export async function updateStoreLogoDisplay(data: { logoHeight: number; headerDisplay: string }) {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('store_settings')
+    .update({ logo_height: data.logoHeight, header_display: data.headerDisplay })
+    .eq('id', ctx.storeSettingsId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/configuracion')
+  revalidateStorefront()
+}

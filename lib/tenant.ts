@@ -8,6 +8,8 @@ export type Store = {
   branchId: string
   storeName: string | null
   logoUrl: string | null
+  logoHeight: number
+  headerDisplay: 'logo' | 'name' | 'both'
   faviconUrl: string | null
   accentColor: string | null
   whatsappNumber: string | null
@@ -40,6 +42,8 @@ export const getStoreBySlug = cache(async (slug: string): Promise<Store | null> 
     branchId: data.branch_id,
     storeName: data.store_name,
     logoUrl: data.logo_url,
+    logoHeight: data.logo_height ?? 32,
+    headerDisplay: (data.header_display as Store['headerDisplay']) ?? 'logo',
     faviconUrl: data.favicon_url,
     accentColor: data.accent_color,
     whatsappNumber: data.whatsapp_number,

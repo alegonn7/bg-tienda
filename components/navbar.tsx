@@ -8,6 +8,8 @@ import type { Store } from '@/lib/tenant'
 export function Navbar({ store }: { store: Store }) {
   const { totalCount, openCart } = useCart()
   const brandName = store.storeName ?? store.organizationName
+  const showLogo = store.headerDisplay !== 'name' && !!store.logoUrl
+  const showName = store.headerDisplay !== 'logo' || !store.logoUrl
 
   const navLinks = [
     { href: `/${store.slug}`, label: 'Inicio' },
@@ -28,12 +30,16 @@ export function Navbar({ store }: { store: Store }) {
           className="flex items-center gap-2 text-[17px] font-medium tracking-tight"
           style={{ color: '#111111' }}
         >
-          {store.logoUrl ? (
+          {showLogo && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={store.logoUrl} alt={brandName} className="h-8 w-auto object-contain" />
-          ) : (
-            brandName
+            <img
+              src={store.logoUrl!}
+              alt={brandName}
+              style={{ height: `${store.logoHeight}px`, width: 'auto' }}
+              className="object-contain"
+            />
           )}
+          {showName && brandName}
         </Link>
 
         <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
