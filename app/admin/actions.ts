@@ -232,18 +232,23 @@ export async function updateStoreBranding(data: StoreBrandingData) {
   revalidateStorefront()
 }
 
-// Favicon (antes vivía en la tabla genérica "settings" de Pins-crew — ahora es
-// store_settings.favicon_url, por organización).
-export async function updateStoreFavicon(faviconUrl: string) {
+// Logo — vive en organizations.logo_url, el mismo campo que ya usa bg-gestion, así que
+// cambiarlo acá también lo actualiza ahí. RLS solo deja actualizar "organizations" al
+// owner de la organización (ver policy "Owners can update their organization"); si un
+// admin/employee intenta usar esto, el update no matchea ninguna fila y .single() tira
+// error en vez de fallar en silencio.
+export async function updateStoreLogo(logoUrl: string) {
   const ctx = await getCurrentOrgForAdmin()
   if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
 
   const supabase = await createClient()
   const { error } = await supabase
-    .from('store_settings')
-    .update({ favicon_url: faviconUrl })
-    .eq('id', ctx.storeSettingsId)
-  if (error) throw new Error(error.message)
+    .from('organizations')
+    .update({ logo_url: logoUrl })
+    .eq('id', ctx.organizationId)
+    .select('id')
+    .single()
+  if (error) throw new Error('Solo el dueño de la tienda puede cambiar el logo.')
   revalidatePath('/admin/configuracion')
   revalidateStorefront()
 }

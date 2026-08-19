@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentOrgForAdmin } from '@/lib/tenant'
-import { FaviconManager } from '@/components/admin/favicon-manager'
+import { LogoManager } from '@/components/admin/logo-manager'
 import { StoreBrandingForm } from '@/components/admin/store-branding-form'
 
 export default async function ConfiguracionPage() {
@@ -43,12 +43,12 @@ export default async function ConfiguracionPage() {
 
       <div className="p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
         <h2 className="mb-1 text-[15px] font-medium" style={{ color: '#111111' }}>
-          Favicon
+          Logo
         </h2>
         <p className="mb-6 text-[13px]" style={{ color: '#6b6b6b' }}>
-          El ícono que aparece en la pestaña del navegador.
+          Aparece al lado del nombre en la tienda online.
         </p>
-        <FaviconManager current={ctx.faviconUrl} organizationId={ctx.organizationId} />
+        <LogoManager current={ctx.logoUrl} organizationId={ctx.organizationId} />
       </div>
     </div>
   )
