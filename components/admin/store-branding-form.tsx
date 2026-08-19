@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateStoreBranding } from '@/app/admin/actions'
 
+type Feature = { title: string; text: string }
+
 type StoreSettings = {
   store_name: string | null
   hero_title: string | null
@@ -13,6 +15,17 @@ type StoreSettings = {
   instagram_url: string | null
   facebook_url: string | null
   show_prices: boolean
+  features: Feature[] | null
+}
+
+const EMPTY_FEATURE: Feature = { title: '', text: '' }
+const FEATURE_SLOTS = 3
+
+function initialFeatures(features: Feature[] | null): Feature[] {
+  const base = Array.isArray(features) ? features : []
+  const padded = [...base]
+  while (padded.length < FEATURE_SLOTS) padded.push({ ...EMPTY_FEATURE })
+  return padded.slice(0, FEATURE_SLOTS)
 }
 
 const inputStyle = {
@@ -33,9 +46,14 @@ export function StoreBrandingForm({ store, slug }: { store: StoreSettings; slug:
   const [instagramUrl, setInstagramUrl] = useState(store.instagram_url ?? '')
   const [facebookUrl, setFacebookUrl] = useState(store.facebook_url ?? '')
   const [showPrices, setShowPrices] = useState(store.show_prices)
+  const [features, setFeatures] = useState<Feature[]>(() => initialFeatures(store.features))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
+
+  function setFeature(index: number, field: keyof Feature, value: string) {
+    setFeatures((prev) => prev.map((f, i) => (i === index ? { ...f, [field]: value } : f)))
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -52,6 +70,7 @@ export function StoreBrandingForm({ store, slug }: { store: StoreSettings; slug:
         instagramUrl,
         facebookUrl,
         showPrices,
+        features,
       })
       setSaved(true)
       router.refresh()
@@ -116,6 +135,37 @@ export function StoreBrandingForm({ store, slug }: { store: StoreSettings; slug:
           className="mt-2 w-full resize-none px-4 py-3 text-[15px] outline-none"
           style={inputStyle}
         />
+      </div>
+
+      <div>
+        <label className="block text-[12px] uppercase" style={labelStyle}>
+          Franja de destacados (los 3 puntos debajo del inicio)
+        </label>
+        <div className="mt-2 flex flex-col gap-3">
+          {features.map((f, i) => (
+            <div key={i} className="grid grid-cols-2 gap-3">
+              <input
+                type="text"
+                value={f.title}
+                onChange={(e) => setFeature(i, 'title', e.target.value)}
+                placeholder={`Título ${i + 1}`}
+                className="px-4 py-2.5 text-[14px] outline-none"
+                style={inputStyle}
+              />
+              <input
+                type="text"
+                value={f.text}
+                onChange={(e) => setFeature(i, 'text', e.target.value)}
+                placeholder={`Descripción ${i + 1}`}
+                className="px-4 py-2.5 text-[14px] outline-none"
+                style={inputStyle}
+              />
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-[12px]" style={{ color: '#6b6b6b' }}>
+          Dejá un título vacío para no mostrar ese punto.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

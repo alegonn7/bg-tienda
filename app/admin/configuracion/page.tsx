@@ -13,7 +13,7 @@ export default async function ConfiguracionPage() {
   const { data: storeSettings } = await supabase
     .from('store_settings')
     .select(
-      'store_name, hero_title, hero_subtitle, accent_color, whatsapp_number, instagram_url, facebook_url, show_prices'
+      'store_name, hero_title, hero_subtitle, accent_color, whatsapp_number, instagram_url, facebook_url, show_prices, features'
     )
     .eq('id', ctx.storeSettingsId)
     .single()

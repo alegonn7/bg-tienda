@@ -18,6 +18,7 @@ export type Store = {
   paymentOnlineEnabled: boolean
   heroTitle: string | null
   heroSubtitle: string | null
+  features: { title: string; text: string }[]
 }
 
 // Resuelve slug -> tienda pública. Usa la vista store_directory (Fase 01), que ya filtra por
@@ -49,6 +50,7 @@ export const getStoreBySlug = cache(async (slug: string): Promise<Store | null> 
     paymentOnlineEnabled: data.payment_online_enabled,
     heroTitle: data.hero_title,
     heroSubtitle: data.hero_subtitle,
+    features: Array.isArray(data.features) ? data.features : [],
   }
 })
 

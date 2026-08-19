@@ -169,6 +169,7 @@ type StoreBrandingData = {
   instagramUrl: string
   facebookUrl: string
   showPrices: boolean
+  features: { title: string; text: string }[]
 }
 
 export async function updateStoreBranding(data: StoreBrandingData) {
@@ -187,6 +188,9 @@ export async function updateStoreBranding(data: StoreBrandingData) {
       instagram_url: data.instagramUrl || null,
       facebook_url: data.facebookUrl || null,
       show_prices: data.showPrices,
+      features: data.features
+        .filter((f) => f.title.trim())
+        .map((f) => ({ title: f.title.trim(), text: f.text.trim() })),
     })
     .eq('id', ctx.storeSettingsId)
   if (error) throw new Error(error.message)
