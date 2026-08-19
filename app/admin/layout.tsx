@@ -49,7 +49,7 @@ export default async function AdminLayout({
                 Banner
               </Link>
               <Link href="/admin/configuracion" className="text-[13px]" style={{ color: '#6b6b6b' }}>
-                Configuración
+                Mi Tienda
               </Link>
             </nav>
           )}

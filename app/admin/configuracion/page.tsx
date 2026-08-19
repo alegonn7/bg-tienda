@@ -27,7 +27,7 @@ export default async function ConfiguracionPage() {
           ← Volver
         </Link>
         <h1 className="mt-4 text-[24px] font-medium" style={{ color: '#111111' }}>
-          Configuración
+          Mi Tienda
         </h1>
       </div>
 
