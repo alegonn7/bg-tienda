@@ -83,7 +83,7 @@ export default async function ProductDetailPage({
                   className="mb-3 text-[13px] uppercase"
                   style={{ letterSpacing: '0.02em', color: '#6b6b6b' }}
                 >
-                  Medidas disponibles
+                  Tamaños disponibles
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {product.sizes.map((size) => (

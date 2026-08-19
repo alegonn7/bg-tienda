@@ -77,7 +77,10 @@ export function AdminProductTable({ products }: { products: Product[] }) {
               <td className="px-6 py-4 text-[14px]" style={{ color: '#6b6b6b' }}>
                 {product.price != null ? `$${product.price}` : '—'}
               </td>
-              <td className="px-6 py-4 text-[14px]" style={{ color: '#6b6b6b' }}>
+              <td
+                className="px-6 py-4 text-[14px]"
+                style={{ color: product.stock === 0 ? '#d81b8a' : '#6b6b6b', fontWeight: product.stock === 0 ? 600 : 400 }}
+              >
                 {product.stock ?? '—'}
               </td>
               <td className="px-6 py-4">
@@ -94,17 +97,27 @@ export function AdminProductTable({ products }: { products: Product[] }) {
                 </button>
               </td>
               <td className="px-6 py-4">
-                <button
-                  type="button"
-                  onClick={() => handleToggleActive(product.id, product.active)}
-                  className="text-[12px] uppercase"
-                  style={{
-                    letterSpacing: '0.04em',
-                    color: product.active ? '#16a34a' : '#6b6b6b',
-                  }}
-                >
-                  {product.active ? '● Activo' : '○ Inactivo'}
-                </button>
+                {product.stock === 0 ? (
+                  <span
+                    className="text-[12px] uppercase"
+                    style={{ letterSpacing: '0.04em', color: '#b45309' }}
+                    title="No aparece en la tienda hasta que tenga stock de nuevo"
+                  >
+                    ⚠ Sin stock
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleToggleActive(product.id, product.active)}
+                    className="text-[12px] uppercase"
+                    style={{
+                      letterSpacing: '0.04em',
+                      color: product.active ? '#16a34a' : '#6b6b6b',
+                    }}
+                  >
+                    {product.active ? '● Activo' : '○ Inactivo'}
+                  </button>
+                )}
               </td>
               <td className="px-6 py-4">
                 <div className="flex items-center gap-4">

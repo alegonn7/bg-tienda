@@ -203,10 +203,10 @@ export function ProductForm({ product, categories, organizationId }: Props) {
         </div>
       </div>
 
-      {/* Medidas (texto libre — sin tabla de medidas separada, ver Fase 04) */}
+      {/* Tamaños (texto libre — sin tabla de medidas separada, ver Fase 04) */}
       <div>
         <label className="block text-[12px] uppercase" style={{ letterSpacing: '0.06em', color: '#6b6b6b' }}>
-          Medidas disponibles
+          Tamaños disponibles
         </label>
         {sizes.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
