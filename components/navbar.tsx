@@ -3,14 +3,16 @@
 import Link from 'next/link'
 import { ShoppingBag, User } from 'lucide-react'
 import { useCart } from '@/components/cart-context'
+import type { Store } from '@/lib/tenant'
 
-const navLinks = [
-  { href: '/', label: 'Inicio' },
-  { href: '/productos', label: 'Productos' },
-]
-
-export function Navbar() {
+export function Navbar({ store }: { store: Store }) {
   const { totalCount, openCart } = useCart()
+  const brandName = store.storeName ?? store.organizationName
+
+  const navLinks = [
+    { href: `/${store.slug}`, label: 'Inicio' },
+    { href: `/${store.slug}/productos`, label: 'Productos' },
+  ]
 
   return (
     <header
@@ -22,11 +24,16 @@ export function Navbar() {
     >
       <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-6">
         <Link
-          href="/"
-          className="text-[17px] font-medium tracking-tight"
+          href={`/${store.slug}`}
+          className="flex items-center gap-2 text-[17px] font-medium tracking-tight"
           style={{ color: '#111111' }}
         >
-          PinsCrew
+          {store.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={store.logoUrl} alt={brandName} className="h-8 w-auto object-contain" />
+          ) : (
+            brandName
+          )}
         </Link>
 
         <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
@@ -62,7 +69,7 @@ export function Navbar() {
           {totalCount > 0 && (
             <span
               className="absolute -right-0.5 -top-0.5 block h-2 w-2 rounded-full"
-              style={{ backgroundColor: '#d81b8a' }}
+              style={{ backgroundColor: 'var(--color-accent)' }}
               aria-hidden="true"
             />
           )}

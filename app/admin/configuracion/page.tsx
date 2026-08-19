@@ -1,14 +1,11 @@
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { notFound } from 'next/navigation'
+import { getCurrentOrgForAdmin } from '@/lib/tenant'
 import { FaviconManager } from '@/components/admin/favicon-manager'
 
 export default async function ConfiguracionPage() {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', 'favicon')
-    .single()
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) notFound()
 
   return (
     <div className="mx-auto max-w-[700px] px-8 py-10">
@@ -28,7 +25,7 @@ export default async function ConfiguracionPage() {
         <p className="mb-6 text-[13px]" style={{ color: '#6b6b6b' }}>
           El ícono que aparece en la pestaña del navegador.
         </p>
-        <FaviconManager current={data?.value ?? null} />
+        <FaviconManager current={ctx.faviconUrl} organizationId={ctx.organizationId} />
       </div>
     </div>
   )

@@ -2,15 +2,22 @@ import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
 import { CartDrawer } from '@/components/cart-drawer'
 import { WhatsAppButton } from '@/components/whatsapp-button'
+import type { Store } from '@/lib/tenant'
 
-export function SiteShell({ children }: { children: React.ReactNode }) {
+export function SiteShell({
+  children,
+  store,
+}: {
+  children: React.ReactNode
+  store: Store
+}) {
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar />
+      <Navbar store={store} />
       <main className="flex-1">{children}</main>
-      <Footer />
-      <CartDrawer />
-      <WhatsAppButton />
+      <Footer store={store} />
+      <CartDrawer store={store} />
+      <WhatsAppButton store={store} />
     </div>
   )
 }

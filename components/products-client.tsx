@@ -1,20 +1,31 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ProductCard } from '@/components/product-card'
 import type { Product } from '@/lib/products'
 
 export function ProductsClient({
   products,
-  categories,
-  sizes,
+  slug,
 }: {
   products: Product[]
-  categories: string[]
-  sizes: string[]
+  slug: string
 }) {
   const [activeCategory, setActiveCategory] = useState('Todos')
   const [activeSize, setActiveSize] = useState('')
+
+  // Categorías/medidas se derivan de los productos ya traídos (store_catalog es lo único
+  // público — no hay una policy pública separada para las tablas categories/sizes, ver Fase 04).
+  const categories = useMemo(() => {
+    const names = new Set(products.map((p) => p.category).filter(Boolean))
+    return ['Todos', ...Array.from(names).sort()]
+  }, [products])
+
+  const sizes = useMemo(() => {
+    const all = new Set<string>()
+    products.forEach((p) => p.sizes?.forEach((s) => all.add(s)))
+    return Array.from(all).sort()
+  }, [products])
 
   const filtered = products.filter((p) => {
     const categoryMatch = activeCategory === 'Todos' || p.category === activeCategory
@@ -50,7 +61,7 @@ export function ProductsClient({
                 letterSpacing: '0.06em',
                 color: isActive ? '#111111' : '#6b6b6b',
                 paddingBottom: '4px',
-                borderBottom: isActive ? '1px solid #d81b8a' : '1px solid transparent',
+                borderBottom: isActive ? '1px solid var(--color-accent)' : '1px solid transparent',
               }}
             >
               {cat}
@@ -105,7 +116,7 @@ export function ProductsClient({
           </p>
         ) : (
           filtered.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard key={product.id} product={product} slug={slug} />
           ))
         )}
       </div>

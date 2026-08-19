@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { Store } from '@/lib/tenant'
 
 function InstagramIcon() {
   return (
@@ -16,7 +17,10 @@ function FacebookIcon() {
   )
 }
 
-export function Footer() {
+export function Footer({ store }: { store: Store }) {
+  const brandName = store.storeName ?? store.organizationName
+  const year = new Date().getFullYear()
+
   return (
     <footer style={{ backgroundColor: '#ffffff', borderTop: '1px solid #e5e5e5' }}>
       <div className="mx-auto max-w-[1200px] px-6">
@@ -24,43 +28,49 @@ export function Footer() {
           className="flex flex-col items-start justify-between gap-6 py-10 md:flex-row md:items-center"
           style={{ borderBottom: '1px solid #e5e5e5' }}
         >
-          <Link href="/" className="text-[17px] font-medium tracking-tight" style={{ color: '#111111' }}>
-            PinsCrew
+          <Link href={`/${store.slug}`} className="text-[17px] font-medium tracking-tight" style={{ color: '#111111' }}>
+            {brandName}
           </Link>
           <nav className="flex items-center gap-8">
-            <Link href="/" className="nav-link text-[12px] uppercase" style={{ letterSpacing: '0.08em', color: '#6b6b6b' }}>
+            <Link href={`/${store.slug}`} className="nav-link text-[12px] uppercase" style={{ letterSpacing: '0.08em', color: '#6b6b6b' }}>
               Inicio
             </Link>
-            <Link href="/productos" className="nav-link text-[12px] uppercase" style={{ letterSpacing: '0.08em', color: '#6b6b6b' }}>
+            <Link href={`/${store.slug}/productos`} className="nav-link text-[12px] uppercase" style={{ letterSpacing: '0.08em', color: '#6b6b6b' }}>
               Productos
             </Link>
           </nav>
-          <div className="flex items-center gap-4">
-            <a
-              href="https://www.instagram.com/pins_crew/"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Instagram"
-              className="transition-opacity hover:opacity-60"
-              style={{ color: '#111111' }}
-            >
-              <InstagramIcon />
-            </a>
-            <a
-              href="https://www.facebook.com/merchandisingpins/"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Facebook"
-              className="transition-opacity hover:opacity-60"
-              style={{ color: '#111111' }}
-            >
-              <FacebookIcon />
-            </a>
-          </div>
+          {(store.instagramUrl || store.facebookUrl) && (
+            <div className="flex items-center gap-4">
+              {store.instagramUrl && (
+                <a
+                  href={store.instagramUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Instagram"
+                  className="transition-opacity hover:opacity-60"
+                  style={{ color: '#111111' }}
+                >
+                  <InstagramIcon />
+                </a>
+              )}
+              {store.facebookUrl && (
+                <a
+                  href={store.facebookUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Facebook"
+                  className="transition-opacity hover:opacity-60"
+                  style={{ color: '#111111' }}
+                >
+                  <FacebookIcon />
+                </a>
+              )}
+            </div>
+          )}
         </div>
         <div className="py-8">
           <p className="text-[12px]" style={{ color: '#6b6b6b' }}>
-            © 2026 PinsCrew · Chapitas publicitarias y personalizadas · Argentina
+            © {year} {brandName}
           </p>
         </div>
       </div>

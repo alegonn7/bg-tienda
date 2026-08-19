@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('admin@pinscrew.com')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -47,7 +47,7 @@ export default function LoginPage() {
             Panel Admin
           </h1>
           <p className="mt-1 text-[14px]" style={{ color: '#6b6b6b' }}>
-            PinsCrew
+            bg-tienda
           </p>
         </div>
 
@@ -63,6 +63,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="tu@email.com"
               required
               className="mt-2 w-full px-4 py-3 text-[15px] outline-none"
               style={{

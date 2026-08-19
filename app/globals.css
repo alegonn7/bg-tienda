@@ -9,7 +9,8 @@
   --font-sans: var(--font-dm-sans), 'DM Sans Fallback';
   --font-mono: var(--font-geist-mono), 'Geist Mono Fallback';
 
-  /* PinsCrew brand palette */
+  /* Paleta default de tienda — --color-accent se sobreescribe por tenant (ver
+     app/[slug]/layout.tsx), esto es solo el fallback si una tienda no definió accent_color. */
   --color-bg: #fafaf9;
   --color-surface: #ffffff;
   --color-ink: #111111;
@@ -36,7 +37,6 @@
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -139,7 +139,7 @@
     bottom: -4px;
     height: 1px;
     width: 0;
-    background-color: #d81b8a;
+    background-color: var(--color-accent);
     transition: width 150ms ease;
   }
   .nav-link:hover {
@@ -155,7 +155,7 @@
   .detail-link:hover {
     color: #111111;
     text-decoration: underline;
-    text-decoration-color: #d81b8a;
+    text-decoration-color: var(--color-accent);
     text-underline-offset: 3px;
   }
 
@@ -188,8 +188,8 @@
     cursor: pointer;
   }
   .pc-btn-hero:hover {
-    background-color: #d81b8a;
-    border-color: #d81b8a;
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
   }
 
   .product-card-bordered {

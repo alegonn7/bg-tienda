@@ -2,8 +2,6 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata } from 'next'
 import { DM_Sans, Geist_Mono } from 'next/font/google'
 import './globals.css'
-import { CartProvider } from '@/components/cart-context'
-import { createClient } from '@/lib/supabase/server'
 
 const dmSans = DM_Sans({
   variable: '--font-dm-sans',
@@ -15,25 +13,12 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
-export async function generateMetadata(): Promise<Metadata> {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', 'favicon')
-    .single()
-
-  const faviconUrl = data?.value ?? '/favicon.png'
-
-  return {
-    title: 'PinsCrew — Pins personalizados',
-    description:
-      'Fabricamos pins personalizados en todos los formatos: llaveros, imanes, destapadores y más. Para empresas, eventos y proyectos propios. Producción local argentina, envíos a todo el país.',
-    icons: {
-      icon: faviconUrl,
-      apple: faviconUrl,
-    },
-  }
+// Metadata específico de cada tienda (título, favicon) se resuelve en app/[slug]/layout.tsx,
+// que la sobreescribe. Esto queda como fallback neutro para /admin y para el caso de una URL
+// sin slug.
+export const metadata: Metadata = {
+  title: 'bg-tienda',
+  description: 'Tiendas online de bg-tienda.',
 }
 
 export default function RootLayout({
@@ -48,7 +33,7 @@ export default function RootLayout({
       style={{ backgroundColor: '#fafaf9' }}
     >
       <body className="font-sans antialiased">
-        <CartProvider>{children}</CartProvider>
+        {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

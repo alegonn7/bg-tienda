@@ -1,10 +1,15 @@
-const WA_NUMBER = '542241579045'
-const WA_URL = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent('Hola PinsCrew! Quiero consultar sobre un producto.')}`
+import type { Store } from '@/lib/tenant'
 
-export function WhatsAppButton() {
+export function WhatsAppButton({ store }: { store: Store }) {
+  if (!store.whatsappNumber) return null
+
+  const brandName = store.storeName ?? store.organizationName
+  const message = store.whatsappMessageTemplate ?? `Hola ${brandName}! Quiero consultar sobre un producto.`
+  const waUrl = `https://wa.me/${store.whatsappNumber}?text=${encodeURIComponent(message)}`
+
   return (
     <a
-      href={WA_URL}
+      href={waUrl}
       target="_blank"
       rel="noreferrer"
       aria-label="Consultar por WhatsApp"

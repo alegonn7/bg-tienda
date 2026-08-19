@@ -4,9 +4,11 @@ import { productImage } from '@/lib/products'
 
 export function ProductCard({
   product,
+  slug,
   bordered = true,
 }: {
   product: Product
+  slug: string
   bordered?: boolean
 }) {
   return (
@@ -15,7 +17,7 @@ export function ProductCard({
       style={{ backgroundColor: '#ffffff' }}
     >
       <Link
-        href={`/productos/${product.id}`}
+        href={`/${slug}/productos/${product.id}`}
         className="block"
         aria-label={`Ver ${product.name}`}
       >
@@ -45,7 +47,7 @@ export function ProductCard({
               Consultá precio
             </p>
             <Link
-              href={`/productos/${product.id}`}
+              href={`/${slug}/productos/${product.id}`}
               className="pc-btn mt-5 w-full px-4 py-2.5 text-[13px]"
             >
               Ver detalle →
@@ -53,7 +55,7 @@ export function ProductCard({
           </>
         ) : (
           <Link
-            href={`/productos/${product.id}`}
+            href={`/${slug}/productos/${product.id}`}
             className="detail-link mt-3 text-[13px]"
             style={{ color: '#6b6b6b' }}
           >

@@ -3,9 +3,9 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { saveSetting } from '@/app/admin/actions'
+import { updateStoreFavicon } from '@/app/admin/actions'
 
-export function FaviconManager({ current }: { current: string | null }) {
+export function FaviconManager({ current, organizationId }: { current: string | null; organizationId: string }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState(current)
@@ -21,12 +21,12 @@ export function FaviconManager({ current }: { current: string | null }) {
     setError('')
 
     const ext = file.name.split('.').pop()
-    const filename = `favicon/favicon.${ext}`
+    const filename = `${organizationId}/favicon.${ext}`
 
-    await supabase.storage.from('products').remove([filename])
+    await supabase.storage.from('store-product-images').remove([filename])
 
     const { error: uploadError } = await supabase.storage
-      .from('products')
+      .from('store-product-images')
       .upload(filename, file, { upsert: true })
 
     if (uploadError) {
@@ -35,10 +35,10 @@ export function FaviconManager({ current }: { current: string | null }) {
       return
     }
 
-    const { data } = supabase.storage.from('products').getPublicUrl(filename)
+    const { data } = supabase.storage.from('store-product-images').getPublicUrl(filename)
     const url = `${data.publicUrl}?t=${Date.now()}`
 
-    await saveSetting('favicon', data.publicUrl)
+    await updateStoreFavicon(data.publicUrl)
     setPreview(url)
     setUploading(false)
     if (fileRef.current) fileRef.current.value = ''

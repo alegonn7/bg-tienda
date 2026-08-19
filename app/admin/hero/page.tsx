@@ -1,12 +1,18 @@
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentOrgForAdmin } from '@/lib/tenant'
 import { HeroManager } from '@/components/admin/hero-manager'
 
 export default async function HeroPage() {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) notFound()
+
   const supabase = await createClient()
   const { data } = await supabase
     .from('hero_images')
     .select('*')
+    .eq('organization_id', ctx.organizationId)
     .order('position')
 
   return (
@@ -23,7 +29,7 @@ export default async function HeroPage() {
         </p>
       </div>
 
-      <HeroManager images={data ?? []} />
+      <HeroManager images={data ?? []} organizationId={ctx.organizationId} />
     </div>
   )
 }

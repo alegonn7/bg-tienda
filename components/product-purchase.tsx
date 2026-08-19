@@ -4,9 +4,13 @@ import { useState } from 'react'
 import { Minus, Plus } from 'lucide-react'
 import { useCart, buildWhatsAppLink, type CartItem } from '@/components/cart-context'
 import type { Product } from '@/lib/products'
+import type { Store } from '@/lib/tenant'
+import { createPendingOrder } from '@/app/[slug]/actions'
 
-export function ProductPurchase({ product }: { product: Product }) {
+export function ProductPurchase({ product, store }: { product: Product; store: Store }) {
   const { addItem } = useCart()
+  const brandName = store.storeName ?? store.organizationName
+  const [sending, setSending] = useState(false)
   const hasSizes = product.sizes && product.sizes.length > 0
 
   // Map size → quantity (0 = not selected)
@@ -45,6 +49,13 @@ export function ProductPurchase({ product }: { product: Product }) {
         .filter((s) => sizeQtys[s] > 0)
         .map((s) => ({ key: `${product.id}::${s}`, product, size: s, quantity: sizeQtys[s] }))
     : [{ key: `${product.id}::`, product, quantity: sizeQtys[''] || 1 }]
+
+  async function handleConsultWhatsApp() {
+    setSending(true)
+    await createPendingOrder(store.organizationId, store.branchId, waItems)
+    window.open(buildWhatsAppLink(waItems, store.whatsappNumber ?? '', brandName), '_blank', 'noreferrer')
+    setSending(false)
+  }
 
   return (
     <div>
@@ -131,16 +142,16 @@ export function ProductPurchase({ product }: { product: Product }) {
       </button>
 
       {waItems.length > 0 && (
-        <a
-          href={buildWhatsAppLink(waItems)}
-          target="_blank"
-          rel="noreferrer"
-          className="detail-link mt-5 inline-flex items-center gap-2 text-[13px]"
+        <button
+          type="button"
+          onClick={handleConsultWhatsApp}
+          disabled={sending}
+          className="detail-link mt-5 inline-flex items-center gap-2 text-[13px] disabled:opacity-60"
           style={{ color: '#6b6b6b' }}
         >
           <WhatsAppIcon />
-          Consultar por WhatsApp
-        </a>
+          {sending ? 'Enviando...' : 'Consultar por WhatsApp'}
+        </button>
       )}
     </div>
   )

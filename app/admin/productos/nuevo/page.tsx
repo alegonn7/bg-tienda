@@ -1,13 +1,15 @@
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentOrgForAdmin } from '@/lib/tenant'
 import { ProductForm } from '@/components/admin/product-form'
 
 export default async function NuevoProductoPage() {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) notFound()
+
   const supabase = await createClient()
-  const [{ data: categories }, { data: sizes }] = await Promise.all([
-    supabase.from('categories').select('*').order('name'),
-    supabase.from('sizes').select('*').order('name'),
-  ])
+  const { data: categories } = await supabase.from('categories').select('*').order('name')
 
   return (
     <div className="mx-auto max-w-[700px] px-8 py-10">
@@ -21,10 +23,7 @@ export default async function NuevoProductoPage() {
       </div>
 
       <div className="p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
-        <ProductForm
-          categories={categories ?? []}
-          sizes={sizes ?? []}
-        />
+        <ProductForm categories={categories ?? []} organizationId={ctx.organizationId} />
       </div>
     </div>
   )

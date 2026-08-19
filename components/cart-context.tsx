@@ -88,15 +88,13 @@ export function useCart() {
   return ctx
 }
 
-const WHATSAPP_NUMBER = '542241579045'
-
-export function buildWhatsAppLink(items: CartItem[]) {
+export function buildWhatsAppLink(items: CartItem[], whatsappNumber: string, storeName: string) {
   const lines = items.map((i) => {
     const size = i.size ? ` — Medida: ${i.size}` : ''
     return `• ${i.product.name}${size} (x${i.quantity})`
   })
-  const message = `Hola PinsCrew! Quiero consultar por el siguiente pedido:\n\n${lines.join(
+  const message = `Hola ${storeName}! Quiero consultar por el siguiente pedido:\n\n${lines.join(
     '\n',
   )}\n\nGracias!`
-  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
+  return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`
 }

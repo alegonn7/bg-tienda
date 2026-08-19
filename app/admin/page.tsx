@@ -1,16 +1,13 @@
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { getAdminProducts } from '@/lib/products-server'
+import { getCurrentOrgForAdmin } from '@/lib/tenant'
 import { AdminProductTable } from '@/components/admin/admin-product-table'
-import type { Product } from '@/lib/products'
 
 export default async function AdminPage() {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('products')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) return null // app/admin/layout.tsx ya no renderiza children en este caso
 
-  const products: Product[] = data ?? []
+  const products = await getAdminProducts(ctx.onlineBranchId)
 
   return (
     <div className="mx-auto max-w-[1200px] px-8 py-10">

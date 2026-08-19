@@ -7,7 +7,7 @@ import { deleteHeroImage } from '@/app/admin/actions'
 
 type HeroImage = { id: string; url: string; position: number }
 
-export function HeroManager({ images }: { images: HeroImage[] }) {
+export function HeroManager({ images, organizationId }: { images: HeroImage[]; organizationId: string }) {
   const router = useRouter()
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -23,10 +23,10 @@ export function HeroManager({ images }: { images: HeroImage[] }) {
 
     for (const file of files) {
       const ext = file.name.split('.').pop()
-      const filename = `hero/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const filename = `${organizationId}/hero/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
       const { error: uploadError } = await supabase.storage
-        .from('products')
+        .from('store-product-images')
         .upload(filename, file)
 
       if (uploadError) {
@@ -35,11 +35,12 @@ export function HeroManager({ images }: { images: HeroImage[] }) {
         return
       }
 
-      const { data } = supabase.storage.from('products').getPublicUrl(filename)
+      const { data } = supabase.storage.from('store-product-images').getPublicUrl(filename)
 
       const { error: dbError } = await supabase.from('hero_images').insert({
         url: data.publicUrl,
         position: images.length,
+        organization_id: organizationId,
       })
 
       if (dbError) {

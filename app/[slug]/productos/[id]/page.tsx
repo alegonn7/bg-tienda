@@ -4,16 +4,20 @@ import { ProductCard } from '@/components/product-card'
 import { ProductPurchase } from '@/components/product-purchase'
 import { getProduct, getProducts } from '@/lib/products-server'
 import { productImage } from '@/lib/products'
+import { getStoreBySlug } from '@/lib/tenant'
 
 export default async function ProductDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ slug: string; id: string }>
 }) {
-  const { id } = await params
+  const { slug, id } = await params
+  const store = await getStoreBySlug(slug)
+  if (!store) notFound()
+
   const [product, allProducts] = await Promise.all([
-    getProduct(id),
-    getProducts(),
+    getProduct(store.organizationId, id),
+    getProducts(store.organizationId),
   ])
 
   if (!product) notFound()
@@ -23,7 +27,7 @@ export default async function ProductDetailPage({
     .slice(0, 3)
 
   return (
-    <SiteShell>
+    <SiteShell store={store}>
       <section className="mx-auto max-w-[1200px] px-6 py-16">
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-[55fr_45fr]">
           {/* Left: image */}
@@ -94,7 +98,7 @@ export default async function ProductDetailPage({
                 </div>
               </div>
             )}
-            <ProductPurchase product={product} />
+            <ProductPurchase product={product} store={store} />
           </div>
         </div>
 
@@ -108,7 +112,7 @@ export default async function ProductDetailPage({
             />
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {related.map((p) => (
-                <ProductCard key={p.id} product={p} />
+                <ProductCard key={p.id} product={p} slug={slug} />
               ))}
             </div>
           </div>

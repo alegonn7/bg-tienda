@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ProductForm } from '@/components/admin/product-form'
-import type { Product } from '@/lib/products'
+import { getAdminProduct } from '@/lib/products-server'
+import { getCurrentOrgForAdmin } from '@/lib/tenant'
 
 export default async function EditarProductoPage({
   params,
@@ -10,17 +11,16 @@ export default async function EditarProductoPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const supabase = await createClient()
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) notFound()
 
-  const [{ data }, { data: categories }, { data: sizes }] = await Promise.all([
-    supabase.from('products').select('*').eq('id', id).single(),
+  const supabase = await createClient()
+  const [product, { data: categories }] = await Promise.all([
+    getAdminProduct(ctx.onlineBranchId, id),
     supabase.from('categories').select('*').order('name'),
-    supabase.from('sizes').select('*').order('name'),
   ])
 
-  if (!data) notFound()
-
-  const product: Product = data
+  if (!product) notFound()
 
   return (
     <div className="mx-auto max-w-[700px] px-8 py-10">
@@ -37,11 +37,7 @@ export default async function EditarProductoPage({
       </div>
 
       <div className="p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
-        <ProductForm
-          product={product}
-          categories={categories ?? []}
-          sizes={sizes ?? []}
-        />
+        <ProductForm product={product} categories={categories ?? []} organizationId={ctx.organizationId} />
       </div>
     </div>
   )

@@ -11,29 +11,37 @@ type Item = { id: string; name: string }
 type Props = {
   product?: Product
   categories: Item[]
-  sizes: Item[]
+  organizationId: string
 }
 
-export function ProductForm({ product, categories, sizes }: Props) {
+export function ProductForm({ product, categories, organizationId }: Props) {
   const isEdit = !!product
   const router = useRouter()
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [name, setName] = useState(product?.name ?? '')
-  const [category, setCategory] = useState(product?.category ?? categories[0]?.name ?? '')
+  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? '')
   const [description, setDescription] = useState(product?.description ?? '')
   const [images, setImages] = useState<string[]>(product?.images ?? [])
-  const [selectedSizes, setSelectedSizes] = useState<string[]>(product?.sizes ?? [])
+  const [sizes, setSizes] = useState<string[]>(product?.sizes ?? [])
+  const [sizeInput, setSizeInput] = useState('')
   const [active, setActive] = useState(product?.active ?? true)
+  const [price, setPrice] = useState(product?.price?.toString() ?? '0')
+  const [stock, setStock] = useState(product?.stock?.toString() ?? '0')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  function toggleSize(name: string) {
-    setSelectedSizes((prev) =>
-      prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name],
-    )
+  function addSize() {
+    const value = sizeInput.trim()
+    if (!value || sizes.includes(value)) return
+    setSizes((prev) => [...prev, value])
+    setSizeInput('')
+  }
+
+  function removeSize(size: string) {
+    setSizes((prev) => prev.filter((s) => s !== size))
   }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -47,10 +55,10 @@ export function ProductForm({ product, categories, sizes }: Props) {
 
     for (const file of files) {
       const ext = file.name.split('.').pop()
-      const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const filename = `${organizationId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
       const { error: uploadError } = await supabase.storage
-        .from('products')
+        .from('store-product-images')
         .upload(filename, file)
 
       if (uploadError) {
@@ -59,7 +67,7 @@ export function ProductForm({ product, categories, sizes }: Props) {
         return
       }
 
-      const { data } = supabase.storage.from('products').getPublicUrl(filename)
+      const { data } = supabase.storage.from('store-product-images').getPublicUrl(filename)
       urls.push(data.publicUrl)
     }
 
@@ -78,9 +86,18 @@ export function ProductForm({ product, categories, sizes }: Props) {
     setError('')
 
     try {
-      const data = { name, category, description, images, sizes: selectedSizes, active }
-      if (isEdit) {
-        await updateProduct(product.id, data)
+      const data = {
+        name,
+        categoryId,
+        description,
+        images,
+        sizes,
+        active,
+        price: Number(price) || 0,
+        stock: Number(stock) || 0,
+      }
+      if (isEdit && product?.productBranchId) {
+        await updateProduct(product.id, product.productBranchId, data)
       } else {
         await createProduct(data)
       }
@@ -125,14 +142,14 @@ export function ProductForm({ product, categories, sizes }: Props) {
           </p>
         ) : (
           <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
             required
             className="mt-2 w-full px-4 py-3 text-[15px] outline-none"
             style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
           >
             {categories.map((cat) => (
-              <option key={cat.id} value={cat.name}>
+              <option key={cat.id} value={cat.id}>
                 {cat.name}
               </option>
             ))}
@@ -155,34 +172,83 @@ export function ProductForm({ product, categories, sizes }: Props) {
         />
       </div>
 
-      {/* Medidas */}
-      {sizes.length > 0 && (
+      {/* Precio y stock */}
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-[12px] uppercase" style={{ letterSpacing: '0.06em', color: '#6b6b6b' }}>
-            Medidas disponibles
+            Precio
           </label>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {sizes.map((size) => {
-              const isSelected = selectedSizes.includes(size.name)
-              return (
-                <button
-                  key={size.id}
-                  type="button"
-                  onClick={() => toggleSize(size.name)}
-                  className="px-4 py-2 text-[13px]"
-                  style={{
-                    border: `1px solid ${isSelected ? '#111111' : '#e5e5e5'}`,
-                    backgroundColor: isSelected ? '#111111' : '#fff',
-                    color: isSelected ? '#fff' : '#6b6b6b',
-                  }}
-                >
-                  {size.name}
-                </button>
-              )
-            })}
-          </div>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            className="mt-2 w-full px-4 py-3 text-[15px] outline-none"
+            style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
+          />
         </div>
-      )}
+        <div>
+          <label className="block text-[12px] uppercase" style={{ letterSpacing: '0.06em', color: '#6b6b6b' }}>
+            Stock
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={stock}
+            onChange={(e) => setStock(e.target.value)}
+            className="mt-2 w-full px-4 py-3 text-[15px] outline-none"
+            style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
+          />
+        </div>
+      </div>
+
+      {/* Medidas (texto libre — sin tabla de medidas separada, ver Fase 04) */}
+      <div>
+        <label className="block text-[12px] uppercase" style={{ letterSpacing: '0.06em', color: '#6b6b6b' }}>
+          Medidas disponibles
+        </label>
+        {sizes.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {sizes.map((size) => (
+              <span
+                key={size}
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-[13px]"
+                style={{ border: '1px solid #111111', color: '#111111' }}
+              >
+                {size}
+                <button type="button" onClick={() => removeSize(size)} aria-label={`Quitar ${size}`}>
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-3 flex gap-2">
+          <input
+            type="text"
+            value={sizeInput}
+            onChange={(e) => setSizeInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                addSize()
+              }
+            }}
+            placeholder="Ej: 25mm"
+            className="flex-1 px-4 py-2.5 text-[14px] outline-none"
+            style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
+          />
+          <button
+            type="button"
+            onClick={addSize}
+            className="px-4 py-2.5 text-[13px]"
+            style={{ border: '1px solid #111111', color: '#111111' }}
+          >
+            + Agregar
+          </button>
+        </div>
+      </div>
 
       {/* Imágenes */}
       <div>

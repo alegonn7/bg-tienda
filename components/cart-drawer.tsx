@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { X, Minus, Plus } from 'lucide-react'
 import {
   useCart,
@@ -7,9 +8,22 @@ import {
   type CartItem,
 } from '@/components/cart-context'
 import { productImage } from '@/lib/products'
+import type { Store } from '@/lib/tenant'
+import { createPendingOrder } from '@/app/[slug]/actions'
 
-export function CartDrawer() {
+export function CartDrawer({ store }: { store: Store }) {
   const { items, isOpen, closeCart, removeItem, updateQuantity } = useCart()
+  const brandName = store.storeName ?? store.organizationName
+  const [sending, setSending] = useState(false)
+
+  async function handleCheckout() {
+    setSending(true)
+    // Si falla la creación del pedido rastreado, igual dejamos pasar a WhatsApp — ver
+    // createPendingOrder: el canal principal (WhatsApp) no debe depender de esto.
+    await createPendingOrder(store.organizationId, store.branchId, items)
+    window.open(buildWhatsAppLink(items, store.whatsappNumber ?? '', brandName), '_blank', 'noreferrer')
+    setSending(false)
+  }
 
   return (
     <>
@@ -88,14 +102,14 @@ export function CartDrawer() {
                 A confirmar
               </span>
             </div>
-            <a
-              href={buildWhatsAppLink(items)}
-              target="_blank"
-              rel="noreferrer"
-              className="pc-btn w-full px-4 py-3 text-[14px]"
+            <button
+              type="button"
+              onClick={handleCheckout}
+              disabled={sending}
+              className="pc-btn w-full px-4 py-3 text-[14px] disabled:opacity-60"
             >
-              Consultar por WhatsApp →
-            </a>
+              {sending ? 'Enviando pedido...' : 'Consultar por WhatsApp →'}
+            </button>
             <p className="mt-3 text-[12px]" style={{ color: '#6b6b6b' }}>
               Nos contactamos para confirmar tu pedido y acordar el diseño.
             </p>

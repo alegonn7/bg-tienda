@@ -4,14 +4,15 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Product } from '@/lib/products'
 import { productImage } from '@/lib/products'
-import { deleteProduct, toggleProductActive, toggleProductFeatured } from '@/app/admin/actions'
+import { removeProductFromStore, toggleProductActive, toggleProductFeatured } from '@/app/admin/actions'
 
 export function AdminProductTable({ products }: { products: Product[] }) {
   const router = useRouter()
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`¿Eliminar "${name}"? Esta acción no se puede deshacer.`)) return
-    await deleteProduct(id)
+  async function handleRemove(productBranchId: string | undefined, name: string) {
+    if (!productBranchId) return
+    if (!confirm(`¿Sacar "${name}" de la tienda online? El producto sigue existiendo en bg-gestion.`)) return
+    await removeProductFromStore(productBranchId)
     router.refresh()
   }
 
@@ -41,7 +42,7 @@ export function AdminProductTable({ products }: { products: Product[] }) {
       <table className="w-full">
         <thead>
           <tr style={{ borderBottom: '1px solid #e5e5e5' }}>
-            {['Producto', 'Categoría', 'Más vendido', 'Estado', 'Acciones'].map((h) => (
+            {['Producto', 'Categoría', 'Precio', 'Stock', 'Más vendido', 'Estado', 'Acciones'].map((h) => (
               <th
                 key={h}
                 className="px-6 py-4 text-left text-[12px] uppercase"
@@ -72,6 +73,12 @@ export function AdminProductTable({ products }: { products: Product[] }) {
               </td>
               <td className="px-6 py-4 text-[14px]" style={{ color: '#6b6b6b' }}>
                 {product.category}
+              </td>
+              <td className="px-6 py-4 text-[14px]" style={{ color: '#6b6b6b' }}>
+                {product.price != null ? `$${product.price}` : '—'}
+              </td>
+              <td className="px-6 py-4 text-[14px]" style={{ color: '#6b6b6b' }}>
+                {product.stock ?? '—'}
               </td>
               <td className="px-6 py-4">
                 <button
@@ -106,11 +113,11 @@ export function AdminProductTable({ products }: { products: Product[] }) {
                   </Link>
                   <button
                     type="button"
-                    onClick={() => handleDelete(product.id, product.name)}
+                    onClick={() => handleRemove(product.productBranchId, product.name)}
                     className="text-[13px]"
                     style={{ color: '#d81b8a' }}
                   >
-                    Eliminar
+                    Sacar de la tienda
                   </button>
                 </div>
               </td>

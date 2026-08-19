@@ -8,21 +8,10 @@ export type Product = {
   active: boolean
   featured: boolean
   created_at: string
+  price: number | null
+  stock: number | null
+  productBranchId?: string
 }
-
-export const categories = [
-  'Todos',
-  'Chapita',
-  'Llavero',
-  'Prendedor',
-  'Destapador',
-  'Imán',
-  'Colgante',
-  'Espejo',
-  'Aprietapapel',
-]
-
-export const productCategories = categories.filter((c) => c !== 'Todos')
 
 export function productImage(product: Product): string {
   return product.images?.[0] ?? '/placeholder.jpg'
