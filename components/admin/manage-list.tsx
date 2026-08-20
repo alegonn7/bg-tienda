@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+const PAGE_SIZE = 20
+
 type Item = { id: string; name: string }
 
 type Props = {
@@ -16,7 +18,12 @@ export function ManageList({ items, onAdd, onDelete, placeholder }: Props) {
   const [value, setValue] = useState('')
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
+  const [page, setPage] = useState(1)
   const router = useRouter()
+
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paged = items.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
@@ -76,7 +83,7 @@ export function ManageList({ items, onAdd, onDelete, placeholder }: Props) {
             No hay ninguna todavía.
           </li>
         ) : (
-          items.map((item, i) => (
+          paged.map((item, i) => (
             <li
               key={item.id}
               className="flex items-center justify-between px-5 py-3.5"
@@ -99,6 +106,32 @@ export function ManageList({ items, onAdd, onDelete, placeholder }: Props) {
           ))
         )}
       </ul>
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 text-[13px] disabled:opacity-40"
+            style={{ border: '1px solid #e5e5e5', color: '#111111', backgroundColor: '#fff' }}
+          >
+            ← Anterior
+          </button>
+          <span className="text-[13px]" style={{ color: '#6b6b6b' }}>
+            Página {currentPage} de {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 text-[13px] disabled:opacity-40"
+            style={{ border: '1px solid #e5e5e5', color: '#111111', backgroundColor: '#fff' }}
+          >
+            Siguiente →
+          </button>
+        </div>
+      )}
     </div>
   )
 }

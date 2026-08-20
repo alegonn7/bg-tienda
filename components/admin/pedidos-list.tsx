@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { confirmOrder, cancelOrder } from '@/app/admin/actions'
 
+const PAGE_SIZE = 10
+
 type OrderItem = {
   id: string
   product_name: string
@@ -28,6 +30,11 @@ export function PedidosList({ orders }: { orders: Order[] }) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+
+  const totalPages = Math.max(1, Math.ceil(orders.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paged = orders.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   async function handleConfirm(id: string) {
     setBusyId(id)
@@ -71,7 +78,7 @@ export function PedidosList({ orders }: { orders: Order[] }) {
           {error}
         </p>
       )}
-      {orders.map((order) => {
+      {paged.map((order) => {
         const info = STATUS_LABEL[order.status] ?? { text: order.status, color: '#6b6b6b' }
         return (
           <div key={order.id} className="p-5" style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff' }}>
@@ -120,6 +127,32 @@ export function PedidosList({ orders }: { orders: Order[] }) {
           </div>
         )
       })}
+
+      {totalPages > 1 && (
+        <div className="mt-2 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 text-[13px] disabled:opacity-40"
+            style={{ border: '1px solid #e5e5e5', color: '#111111', backgroundColor: '#fff' }}
+          >
+            ← Anterior
+          </button>
+          <span className="text-[13px]" style={{ color: '#6b6b6b' }}>
+            Página {currentPage} de {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 text-[13px] disabled:opacity-40"
+            style={{ border: '1px solid #e5e5e5', color: '#111111', backgroundColor: '#fff' }}
+          >
+            Siguiente →
+          </button>
+        </div>
+      )}
     </div>
   )
 }
