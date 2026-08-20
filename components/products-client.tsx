@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from 'react'
 import { ProductCard } from '@/components/product-card'
+import { FilterDropdown } from '@/components/filter-dropdown'
 import type { Product } from '@/lib/products'
+
+const PAGE_SIZE = 24
+
+type SortOrder = 'default' | 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc'
 
 export function ProductsClient({
   products,
@@ -13,9 +18,11 @@ export function ProductsClient({
   slug: string
   showPrices?: boolean
 }) {
+  const [search, setSearch] = useState('')
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set())
   const [activeSizes, setActiveSizes] = useState<Set<string>>(new Set())
-  const [sortOrder, setSortOrder] = useState<'default' | 'name-asc' | 'name-desc'>('default')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('default')
+  const [page, setPage] = useState(1)
 
   // Categorías/medidas se derivan de los productos ya traídos (store_catalog es lo único
   // público — no hay una policy pública separada para las tablas categories/sizes, ver Fase 04).
@@ -30,35 +37,59 @@ export function ProductsClient({
     return Array.from(all).sort()
   }, [products])
 
+  function updateFilter(fn: () => void) {
+    fn()
+    setPage(1)
+  }
+
   function toggleCategory(cat: string) {
-    setActiveCategories((prev) => {
-      const next = new Set(prev)
-      if (next.has(cat)) next.delete(cat)
-      else next.add(cat)
-      return next
-    })
+    updateFilter(() =>
+      setActiveCategories((prev) => {
+        const next = new Set(prev)
+        if (next.has(cat)) next.delete(cat)
+        else next.add(cat)
+        return next
+      })
+    )
   }
 
   function toggleSize(size: string) {
-    setActiveSizes((prev) => {
-      const next = new Set(prev)
-      if (next.has(size)) next.delete(size)
-      else next.add(size)
-      return next
-    })
+    updateFilter(() =>
+      setActiveSizes((prev) => {
+        const next = new Set(prev)
+        if (next.has(size)) next.delete(size)
+        else next.add(size)
+        return next
+      })
+    )
   }
 
-  const filtered = products
-    .filter((p) => {
+  const sorted = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    const filtered = products.filter((p) => {
+      const searchMatch = !term || p.name.toLowerCase().includes(term)
       const categoryMatch = activeCategories.size === 0 || activeCategories.has(p.category)
       const sizeMatch = activeSizes.size === 0 || p.sizes?.some((s) => activeSizes.has(s))
-      return categoryMatch && sizeMatch
+      return searchMatch && categoryMatch && sizeMatch
     })
-    .sort((a, b) => {
-      if (sortOrder === 'name-asc') return a.name.localeCompare(b.name)
-      if (sortOrder === 'name-desc') return b.name.localeCompare(a.name)
-      return 0
-    })
+
+    switch (sortOrder) {
+      case 'name-asc':
+        return filtered.sort((a, b) => a.name.localeCompare(b.name))
+      case 'name-desc':
+        return filtered.sort((a, b) => b.name.localeCompare(a.name))
+      case 'price-asc':
+        return filtered.sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
+      case 'price-desc':
+        return filtered.sort((a, b) => (b.price ?? 0) - (a.price ?? 0))
+      default:
+        return filtered
+    }
+  }, [products, search, activeCategories, activeSizes, sortOrder])
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paged = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   return (
     <>
@@ -68,110 +99,96 @@ export function ProductsClient({
             Productos
           </h1>
           <span className="text-[15px]" style={{ color: '#6b6b6b' }}>
-            {filtered.length} {filtered.length === 1 ? 'producto' : 'productos'}
+            {sorted.length} {sorted.length === 1 ? 'producto' : 'productos'}
           </span>
         </div>
         <select
           value={sortOrder}
-          onChange={(e) => setSortOrder(e.target.value as typeof sortOrder)}
+          onChange={(e) => updateFilter(() => setSortOrder(e.target.value as SortOrder))}
           className="px-3 py-2 text-[12px] uppercase"
           style={{ letterSpacing: '0.04em', border: '1px solid #e5e5e5', color: '#111111', backgroundColor: '#fff' }}
         >
           <option value="default">Orden por defecto</option>
           <option value="name-asc">Nombre A-Z</option>
           <option value="name-desc">Nombre Z-A</option>
+          {showPrices && <option value="price-asc">Precio: menor a mayor</option>}
+          {showPrices && <option value="price-desc">Precio: mayor a menor</option>}
         </select>
       </div>
 
-      {/* Filtro categorías */}
+      {/* Buscador + filtros */}
       <div
-        className="mt-8 flex flex-wrap gap-x-7 gap-y-3 pb-6"
+        className="mt-8 flex flex-wrap items-center gap-3 pb-6"
         style={{ borderBottom: '1px solid #e5e5e5' }}
       >
-        <button
-          type="button"
-          onClick={() => setActiveCategories(new Set())}
-          className="text-[13px] uppercase"
-          style={{
-            letterSpacing: '0.06em',
-            color: activeCategories.size === 0 ? '#111111' : '#6b6b6b',
-            paddingBottom: '4px',
-            borderBottom: activeCategories.size === 0 ? '1px solid var(--color-accent)' : '1px solid transparent',
-          }}
-        >
-          Todos
-        </button>
-        {categories.map((cat) => {
-          const isActive = activeCategories.has(cat)
-          return (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => toggleCategory(cat)}
-              className="text-[13px] uppercase"
-              style={{
-                letterSpacing: '0.06em',
-                color: isActive ? '#111111' : '#6b6b6b',
-                paddingBottom: '4px',
-                borderBottom: isActive ? '1px solid var(--color-accent)' : '1px solid transparent',
-              }}
-            >
-              {cat}
-            </button>
-          )
-        })}
-      </div>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => updateFilter(() => setSearch(e.target.value))}
+          placeholder="Buscar productos..."
+          className="px-4 py-2 text-[13px] outline-none"
+          style={{ border: '1px solid #e5e5e5', color: '#111111', minWidth: '220px' }}
+        />
 
-      {/* Filtro medidas */}
-      {sizes.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveSizes(new Set())}
-            className="px-3 py-1.5 text-[12px] uppercase"
-            style={{
-              letterSpacing: '0.04em',
-              border: `1px solid ${activeSizes.size === 0 ? '#111111' : '#e5e5e5'}`,
-              backgroundColor: activeSizes.size === 0 ? '#111111' : '#fff',
-              color: activeSizes.size === 0 ? '#fff' : '#6b6b6b',
-            }}
-          >
-            Todas
-          </button>
-          {sizes.map((size) => {
-            const isActive = activeSizes.has(size)
-            return (
-              <button
-                key={size}
-                type="button"
-                onClick={() => toggleSize(size)}
-                className="px-3 py-1.5 text-[12px] uppercase"
-                style={{
-                  letterSpacing: '0.04em',
-                  border: `1px solid ${isActive ? '#111111' : '#e5e5e5'}`,
-                  backgroundColor: isActive ? '#111111' : '#fff',
-                  color: isActive ? '#fff' : '#6b6b6b',
-                }}
-              >
-                {size}
-              </button>
-            )
-          })}
-        </div>
-      )}
+        {categories.length > 0 && (
+          <FilterDropdown
+            label="Categoría"
+            options={categories}
+            selected={activeCategories}
+            onToggle={toggleCategory}
+            onClear={() => updateFilter(() => setActiveCategories(new Set()))}
+          />
+        )}
+
+        {sizes.length > 0 && (
+          <FilterDropdown
+            label="Talle"
+            options={sizes}
+            selected={activeSizes}
+            onToggle={toggleSize}
+            onClear={() => updateFilter(() => setActiveSizes(new Set()))}
+          />
+        )}
+      </div>
 
       {/* Grid */}
       <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.length === 0 ? (
+        {paged.length === 0 ? (
           <p className="col-span-3 py-10 text-[14px]" style={{ color: '#6b6b6b' }}>
             No hay productos con ese filtro.
           </p>
         ) : (
-          filtered.map((product) => (
+          paged.map((product) => (
             <ProductCard key={product.id} product={product} slug={slug} showPrices={showPrices} />
           ))
         )}
       </div>
+
+      {totalPages > 1 && (
+        <div className="mt-10 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 text-[13px] disabled:opacity-40"
+            style={{ border: '1px solid #e5e5e5', color: '#111111', backgroundColor: '#fff' }}
+          >
+            ← Anterior
+          </button>
+          <span className="text-[13px]" style={{ color: '#6b6b6b' }}>
+            Página {currentPage} de {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 text-[13px] disabled:opacity-40"
+            style={{ border: '1px solid #e5e5e5', color: '#111111', backgroundColor: '#fff' }}
+          >
+            Siguiente →
+          </button>
+        </div>
+      )}
     </>
   )
 }
