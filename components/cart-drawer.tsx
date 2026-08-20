@@ -10,6 +10,7 @@ import {
 import { productImage } from '@/lib/products'
 import type { Store } from '@/lib/tenant'
 import { createPendingOrder } from '@/app/[slug]/actions'
+import { formatPrice } from '@/lib/format'
 
 export function CartDrawer({ store }: { store: Store }) {
   const { items, isOpen, closeCart, removeItem, updateQuantity } = useCart()
@@ -101,7 +102,7 @@ export function CartDrawer({ store }: { store: Store }) {
                 className="text-[14px] font-medium"
                 style={{ color: '#111111' }}
               >
-                {store.showPrices ? `$${subtotal}` : 'A confirmar'}
+                {store.showPrices ? formatPrice(subtotal) : 'A confirmar'}
               </span>
             </div>
             <button
@@ -171,7 +172,7 @@ function CartRow({
         </div>
         <p className="mt-1 text-[13px]" style={{ color: '#6b6b6b' }}>
           {item.product.category}{item.size ? ` · ${item.size}` : ''}
-          {showPrices && item.product.price != null ? ` · $${item.product.price}` : ''}
+          {showPrices && item.product.price != null ? ` · ${formatPrice(item.product.price)}` : ''}
         </p>
         <div className="mt-3 inline-flex w-fit items-center">
           <button

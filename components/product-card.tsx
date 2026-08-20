@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { Product } from '@/lib/products'
 import { productImage } from '@/lib/products'
+import { formatPrice } from '@/lib/format'
 
 export function ProductCard({
   product,
@@ -46,7 +47,7 @@ export function ProductCard({
         {bordered ? (
           <>
             <p className="mt-3 text-[13px]" style={{ color: showPrices && product.price != null ? '#111111' : '#6b6b6b' }}>
-              {showPrices && product.price != null ? `$${product.price}` : 'Consultá precio'}
+              {showPrices && product.price != null ? formatPrice(product.price) : 'Consultá precio'}
             </p>
             <Link
               href={`/${slug}/productos/${product.id}`}

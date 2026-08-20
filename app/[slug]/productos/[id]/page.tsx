@@ -5,6 +5,7 @@ import { ProductPurchase } from '@/components/product-purchase'
 import { getProduct, getProducts } from '@/lib/products-server'
 import { productImage } from '@/lib/products'
 import { getStoreBySlug } from '@/lib/tenant'
+import { formatPrice } from '@/lib/format'
 
 export default async function ProductDetailPage({
   params,
@@ -62,7 +63,7 @@ export default async function ProductDetailPage({
             </h1>
             {store.showPrices && product.price != null && (
               <p className="mt-3 text-[22px] font-medium" style={{ color: '#111111' }}>
-                ${product.price}
+                {formatPrice(product.price)}
               </p>
             )}
             <div
