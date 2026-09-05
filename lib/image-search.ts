@@ -11,11 +11,15 @@ export type ImageCandidate = {
   thumbnailUrl: string
   title: string
   contextLink: string
+  photographer: string
+  photographerUrl: string
 }
 
 type PexelsPhoto = {
   url: string
   alt?: string
+  photographer?: string
+  photographer_url?: string
   src: { original?: string; large?: string; medium?: string; small?: string }
 }
 
@@ -50,6 +54,8 @@ export async function searchProductImages(query: string): Promise<ImageCandidate
       thumbnailUrl: p.src.medium || p.src.small || (p.src.large || p.src.original)!,
       title: p.alt ?? '',
       contextLink: p.url,
+      photographer: p.photographer ?? '',
+      photographerUrl: p.photographer_url ?? '',
     }))
 }
 

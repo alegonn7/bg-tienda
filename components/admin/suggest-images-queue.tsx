@@ -67,6 +67,8 @@ export function SuggestImagesQueue({ products }: { products: QueueProduct[] }) {
     }
   }
 
+  const selectedCandidate = candidates.find((c) => c.imageUrl === selected)
+
   function skip() {
     setRemaining((prev) => prev.slice(1))
   }
@@ -169,7 +171,7 @@ export function SuggestImagesQueue({ products }: { products: QueueProduct[] }) {
                   onClick={() => setSelected(c.imageUrl)}
                   className="aspect-square overflow-hidden"
                   style={{ border: selected === c.imageUrl ? '3px solid #d81b8a' : '1px solid #e5e5e5' }}
-                  title={c.title}
+                  title={c.photographer ? `${c.title} — Foto de ${c.photographer} en Pexels` : c.title}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={c.thumbnailUrl} alt={c.title} className="h-full w-full object-cover" />
@@ -179,8 +181,28 @@ export function SuggestImagesQueue({ products }: { products: QueueProduct[] }) {
           )}
         </div>
 
-        <p className="mt-4 text-[12px]" style={{ color: '#6b6b6b' }}>
+        {selectedCandidate && (
+          <p className="mt-3 text-[12px]" style={{ color: '#6b6b6b' }}>
+            Foto de{' '}
+            <a href={selectedCandidate.photographerUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>
+              {selectedCandidate.photographer || 'autor desconocido'}
+            </a>{' '}
+            en{' '}
+            <a href={selectedCandidate.contextLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>
+              Pexels
+            </a>
+          </p>
+        )}
+
+        <p className="mt-2 text-[12px]" style={{ color: '#6b6b6b' }}>
           Fijate que la imagen sea apropiada para tu tienda antes de usarla — la búsqueda no filtra derechos de autor.
+        </p>
+
+        <p className="mt-2 text-[11px]" style={{ color: '#9b9b9b' }}>
+          Fotos provistas por{' '}
+          <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>
+            Pexels
+          </a>
         </p>
 
         <div className="mt-4 flex items-center gap-4 pt-4" style={{ borderTop: '1px solid #e5e5e5' }}>
