@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentOrgForAdmin } from '@/lib/tenant'
+import { searchProductImages, translateAndSearchProductImages, type ImageCandidate } from '@/lib/image-search'
 import { revalidatePath } from 'next/cache'
 
 function revalidateStorefront() {
@@ -284,5 +285,65 @@ export async function updateStoreLogoDisplay(data: { logoHeight: number; headerD
     .eq('id', ctx.storeSettingsId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/configuracion')
+  revalidateStorefront()
+}
+
+// Sugerencias de imágenes — para productos cargados desde bg-gestion sin foto. Busca candidatas
+// en base a un texto (normalmente el nombre del producto) y, si el admin elige una, la baja del
+// lado del servidor y la sube al mismo bucket/patrón que la subida manual (product-form.tsx),
+// así queda una copia propia en vez de depender de que la URL externa siga viva.
+function extensionFromContentType(contentType: string): string {
+  const map: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+  }
+  return map[contentType.split(';')[0].trim()] ?? 'jpg'
+}
+
+export async function getImageSuggestions(query: string): Promise<ImageCandidate[]> {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  return searchProductImages(query)
+}
+
+// Búsqueda automática al entrar a cada producto de la cola: traduce el nombre (cargado en
+// español en bg-gestion) antes de buscar, porque Pexels indexa mayormente en inglés. Devuelve el
+// texto ya traducido para que la UI lo muestre en el cuadro de búsqueda editable — si el admin
+// reescribe a mano después, usa getImageSuggestions de arriba, que no vuelve a traducir.
+export async function getInitialImageSuggestions(
+  productName: string,
+): Promise<{ query: string; candidates: ImageCandidate[] }> {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  return translateAndSearchProductImages(productName)
+}
+
+export async function assignProductImage(productId: string, imageUrl: string) {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+
+  const supabase = await createClient()
+
+  const res = await fetch(imageUrl)
+  if (!res.ok) throw new Error(`No se pudo descargar la imagen elegida (${res.status}).`)
+  const contentType = res.headers.get('content-type') || ''
+  if (!contentType.startsWith('image/')) throw new Error('La URL elegida no es una imagen válida.')
+
+  const buffer = Buffer.from(await res.arrayBuffer())
+  const ext = extensionFromContentType(contentType)
+  const filename = `${ctx.organizationId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('store-product-images')
+    .upload(filename, buffer, { contentType })
+  if (uploadError) throw new Error(uploadError.message)
+
+  const { data } = supabase.storage.from('store-product-images').getPublicUrl(filename)
+
+  const { error } = await supabase.from('products').update({ images: [data.publicUrl] }).eq('id', productId)
+  if (error) throw new Error(error.message)
+
   revalidateStorefront()
 }

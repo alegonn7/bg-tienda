@@ -8,6 +8,7 @@ export default async function AdminPage() {
   if (!ctx) return null // app/admin/layout.tsx ya no renderiza children en este caso
 
   const products = await getAdminProducts(ctx.onlineBranchId)
+  const withoutImage = products.filter((p) => p.images.length === 0).length
 
   return (
     <div className="mx-auto max-w-[1200px] px-8 py-10">
@@ -23,12 +24,23 @@ export default async function AdminPage() {
             {products.length} en total
           </p>
         </div>
-        <Link
-          href="/admin/productos/nuevo"
-          className="pc-btn px-5 py-2.5 text-[13px]"
-        >
-          + Nuevo producto
-        </Link>
+        <div className="flex items-center gap-4">
+          {withoutImage > 0 && (
+            <Link
+              href="/admin/productos/sugerir-imagenes"
+              className="text-[13px]"
+              style={{ color: '#d81b8a' }}
+            >
+              {withoutImage} sin imagen · Sugerir imágenes →
+            </Link>
+          )}
+          <Link
+            href="/admin/productos/nuevo"
+            className="pc-btn px-5 py-2.5 text-[13px]"
+          >
+            + Nuevo producto
+          </Link>
+        </div>
       </div>
 
       <AdminProductTable products={products} />
