@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { confirmOrder, cancelOrder } from '@/app/admin/actions'
+import { confirmOrder, cancelOrder, refundOrder } from '@/app/admin/actions'
 
 const PAGE_SIZE = 10
 
@@ -17,6 +17,8 @@ type Order = {
   id: string
   status: string
   created_at: string
+  payment_method: string
+  mp_status: string | null
   store_order_items: OrderItem[]
 }
 
@@ -24,6 +26,7 @@ const STATUS_LABEL: Record<string, { text: string; color: string }> = {
   pending: { text: 'Pendiente', color: '#b45309' },
   confirmed: { text: 'Confirmado', color: '#16a34a' },
   cancelled: { text: 'Cancelado', color: '#6b6b6b' },
+  refunded: { text: 'Reembolsado', color: '#6b6b6b' },
 }
 
 export function PedidosList({ orders }: { orders: Order[] }) {
@@ -58,6 +61,20 @@ export function PedidosList({ orders }: { orders: Order[] }) {
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cancelar')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handleRefund(id: string) {
+    if (!confirm('¿Reembolsar este pedido? Se le devuelve la plata al cliente en Mercado Pago y se restaura el stock.')) return
+    setBusyId(id)
+    setError(null)
+    try {
+      await refundOrder(id)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al reembolsar')
     } finally {
       setBusyId(null)
     }
@@ -103,6 +120,12 @@ export function PedidosList({ orders }: { orders: Order[] }) {
               ))}
             </ul>
 
+            {order.payment_method === 'mercadopago' && order.status === 'pending' && order.mp_status === 'approved' && (
+              <p className="mt-3 text-[12px] font-medium" style={{ color: '#dc2626' }}>
+                Pagado — sin stock, revisar
+              </p>
+            )}
+
             {order.status === 'pending' && (
               <div className="mt-4 flex items-center gap-4" style={{ borderTop: '1px solid #e5e5e5', paddingTop: '16px' }}>
                 <button
@@ -124,6 +147,21 @@ export function PedidosList({ orders }: { orders: Order[] }) {
                 </button>
               </div>
             )}
+
+            {order.payment_method === 'mercadopago' &&
+              (order.status === 'confirmed' || (order.status === 'pending' && order.mp_status === 'approved')) && (
+                <div className="mt-4 flex items-center gap-4" style={{ borderTop: '1px solid #e5e5e5', paddingTop: '16px' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleRefund(order.id)}
+                    disabled={busyId === order.id}
+                    className="text-[13px] disabled:opacity-60"
+                    style={{ color: '#d81b8a' }}
+                  >
+                    {busyId === order.id ? 'Reembolsando...' : 'Reembolsar'}
+                  </button>
+                </div>
+              )}
           </div>
         )
       })}

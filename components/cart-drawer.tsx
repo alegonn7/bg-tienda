@@ -9,13 +9,15 @@ import {
 } from '@/components/cart-context'
 import { productImage } from '@/lib/products'
 import type { Store } from '@/lib/tenant'
-import { createPendingOrder } from '@/app/[slug]/actions'
+import { createPendingOrder, createMercadoPagoCheckout } from '@/app/[slug]/actions'
 import { formatPrice } from '@/lib/format'
 
 export function CartDrawer({ store }: { store: Store }) {
   const { items, isOpen, closeCart, removeItem, updateQuantity } = useCart()
   const brandName = store.storeName ?? store.organizationName
   const [sending, setSending] = useState(false)
+  const [mpSending, setMpSending] = useState(false)
+  const [mpError, setMpError] = useState('')
   const subtotal = items.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0)
 
   async function handleCheckout() {
@@ -25,6 +27,25 @@ export function CartDrawer({ store }: { store: Store }) {
     await createPendingOrder(store.organizationId, store.branchId, items)
     window.open(buildWhatsAppLink(items, store.whatsappNumber ?? '', brandName), '_blank', 'noreferrer')
     setSending(false)
+  }
+
+  // A diferencia de WhatsApp, si esto falla no hay canal de respaldo — el error se muestra
+  // inline. window.location.href (no window.open) porque es una navegación real a pagar.
+  async function handleMercadoPagoCheckout() {
+    setMpSending(true)
+    setMpError('')
+    try {
+      const { checkoutUrl } = await createMercadoPagoCheckout(
+        store.organizationId,
+        store.branchId,
+        store.slug,
+        items.map((item) => ({ productId: item.product.id, size: item.size, quantity: item.quantity })),
+      )
+      window.location.href = checkoutUrl
+    } catch (err) {
+      setMpError(err instanceof Error ? err.message : 'No se pudo iniciar el pago')
+      setMpSending(false)
+    }
   }
 
   return (
@@ -116,6 +137,24 @@ export function CartDrawer({ store }: { store: Store }) {
             <p className="mt-3 text-[12px]" style={{ color: '#6b6b6b' }}>
               Nos contactamos para confirmar tu pedido y acordar el diseño.
             </p>
+            {store.mercadopagoAvailable && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleMercadoPagoCheckout}
+                  disabled={mpSending}
+                  className="mt-3 w-full px-4 py-3 text-[14px] disabled:opacity-60"
+                  style={{ border: '1px solid #111111', color: '#111111', backgroundColor: '#fff' }}
+                >
+                  {mpSending ? 'Redirigiendo a Mercado Pago...' : 'Pagar con Mercado Pago →'}
+                </button>
+                {mpError && (
+                  <p className="mt-2 text-[12px]" style={{ color: '#d81b8a' }}>
+                    {mpError}
+                  </p>
+                )}
+              </>
+            )}
           </div>
         )}
       </aside>

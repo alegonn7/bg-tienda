@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentOrgForAdmin } from '@/lib/tenant'
 import { searchProductImages, translateAndSearchProductImages, type ImageCandidate } from '@/lib/image-search'
+import { invokeMercadoPagoFunction } from '@/lib/mercadopago'
 import { revalidatePath } from 'next/cache'
 
 function revalidateStorefront() {
@@ -192,6 +193,17 @@ export async function cancelOrder(orderId: string) {
   revalidatePath('/admin/pedidos')
 }
 
+// Reembolsa un pedido pagado con Mercado Pago: la Edge Function primero confirma el reembolso
+// en Mercado Pago y SOLO si eso funcionó actualiza stock/venta/pedido (RPC refund_store_order)
+// — nunca al revés. Puede tardar unos segundos (reintentos con backoff si Mercado Pago no
+// responde a la primera).
+export async function refundOrder(orderId: string, reason?: string) {
+  const supabase = await createClient()
+  await invokeMercadoPagoFunction(supabase, 'mercadopago-refund', { storeOrderId: orderId, reason })
+  revalidatePath('/admin/pedidos')
+  revalidateStorefront()
+}
+
 // Branding de la tienda — nombre público, textos del hero, color, contacto. El slug (URL de la
 // tienda) NO se edita desde acá a propósito: cambiarlo rompe links ya compartidos, queda del
 // lado de admin-gestion/soporte.
@@ -284,6 +296,47 @@ export async function updateStoreLogoDisplay(data: { logoHeight: number; headerD
     .update({ logo_height: data.logoHeight, header_display: data.headerDisplay })
     .eq('id', ctx.storeSettingsId)
   if (error) throw new Error(error.message)
+  revalidatePath('/admin/configuracion')
+  revalidateStorefront()
+}
+
+// Mercado Pago — conectar/desconectar la cuenta de la tienda y editar la comisión propia
+// (mp_fee_percentage) o si el pago online está habilitado. El estado real (conectado o no,
+// email del vendedor) vive en store_mercadopago_credentials, que no tiene ninguna policy
+// pública ni de sesión — por eso getMercadoPagoStatus/disconnectMercadoPago pasan por la Edge
+// Function mercadopago-setup en vez de un .select()/.delete() directo, que fallaría igual.
+export async function getMercadoPagoStatus() {
+  const supabase = await createClient()
+  return invokeMercadoPagoFunction<{ connected: boolean; mpEmail: string | null; liveMode: boolean | null }>(
+    supabase,
+    'mercadopago-setup',
+    { action: 'get_status' },
+  )
+}
+
+export async function updateMercadoPagoSettings(data: { feePercentage: number | null; enabled: boolean }) {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('store_settings')
+    .update({ mp_fee_percentage: data.feePercentage, payment_online_enabled: data.enabled })
+    .eq('id', ctx.storeSettingsId)
+
+  if (error) {
+    if (error.message.includes('store_settings_payment_requires_prices')) {
+      throw new Error('Para habilitar el pago online primero tenés que mostrar precios públicamente (arriba).')
+    }
+    throw new Error(error.message)
+  }
+  revalidatePath('/admin/configuracion')
+  revalidateStorefront()
+}
+
+export async function disconnectMercadoPago() {
+  const supabase = await createClient()
+  await invokeMercadoPagoFunction(supabase, 'mercadopago-setup', { action: 'disconnect' })
   revalidatePath('/admin/configuracion')
   revalidateStorefront()
 }

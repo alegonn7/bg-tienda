@@ -18,6 +18,7 @@ export type Store = {
   facebookUrl: string | null
   showPrices: boolean
   paymentOnlineEnabled: boolean
+  mercadopagoAvailable: boolean
   heroTitle: string | null
   heroSubtitle: string | null
   features: { title: string; text: string; icon?: string }[]
@@ -52,6 +53,7 @@ export const getStoreBySlug = cache(async (slug: string): Promise<Store | null> 
     facebookUrl: data.facebook_url,
     showPrices: data.show_prices,
     paymentOnlineEnabled: data.payment_online_enabled,
+    mercadopagoAvailable: data.mercadopago_available ?? false,
     heroTitle: data.hero_title,
     heroSubtitle: data.hero_subtitle,
     features: Array.isArray(data.features) ? data.features : [],
