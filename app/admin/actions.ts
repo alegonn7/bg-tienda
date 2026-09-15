@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentOrgForAdmin } from '@/lib/tenant'
 import { searchProductImages, translateAndSearchProductImages, type ImageCandidate } from '@/lib/image-search'
 import { invokeMercadoPagoFunction } from '@/lib/mercadopago'
+import { invokeShippingFunction } from '@/lib/shipping'
 import { revalidatePath } from 'next/cache'
 
 function revalidateStorefront() {
@@ -22,6 +23,10 @@ type ProductData = {
   active: boolean
   price: number
   stock: number
+  weightGrams?: number | null
+  lengthCm?: number | null
+  widthCm?: number | null
+  heightCm?: number | null
 }
 
 export async function createProduct(data: ProductData) {
@@ -40,6 +45,10 @@ export async function createProduct(data: ProductData) {
       images: data.images,
       sizes: data.sizes,
       is_active: data.active,
+      weight_grams: data.weightGrams ?? null,
+      length_cm: data.lengthCm ?? null,
+      width_cm: data.widthCm ?? null,
+      height_cm: data.heightCm ?? null,
     })
     .select('id')
     .single()
@@ -69,6 +78,10 @@ export async function updateProduct(id: string, productBranchId: string, data: P
       images: data.images,
       sizes: data.sizes,
       is_active: data.active,
+      weight_grams: data.weightGrams ?? null,
+      length_cm: data.lengthCm ?? null,
+      width_cm: data.widthCm ?? null,
+      height_cm: data.heightCm ?? null,
     })
     .eq('id', id)
   if (error) throw new Error(error.message)
@@ -337,6 +350,85 @@ export async function updateMercadoPagoSettings(data: { feePercentage: number | 
 export async function disconnectMercadoPago() {
   const supabase = await createClient()
   await invokeMercadoPagoFunction(supabase, 'mercadopago-setup', { action: 'disconnect' })
+  revalidatePath('/admin/configuracion')
+  revalidateStorefront()
+}
+
+// Envíos — conectar/desconectar un transportista (Correo Argentino o Andreani), cargar la
+// dirección de origen de la sucursal online, y habilitar/deshabilitar el envío calculado. Las
+// credenciales viven en store_shipping_credentials (sin policies públicas) y la dirección de
+// origen en branches — ninguna de las dos es legible directo desde ecomerse, por eso
+// getShippingStatus/saveShippingCredentials/disconnectShippingCarrier/saveShippingOriginAddress
+// pasan por la Edge Function shipping-setup.
+export async function getShippingStatus() {
+  const supabase = await createClient()
+  return invokeShippingFunction<{
+    connected: boolean
+    carrier: string | null
+    displayLabel: string | null
+    environment: string | null
+    origin: {
+      shipping_origin_street: string | null
+      shipping_origin_number: string | null
+      shipping_origin_floor_apartment: string | null
+      shipping_origin_city: string | null
+      shipping_origin_province: string | null
+      shipping_origin_postal_code: string | null
+    } | null
+  }>(supabase, 'shipping-setup', { action: 'get_status' })
+}
+
+export async function saveShippingCredentials(data: {
+  carrier: 'correo_argentino' | 'andreani'
+  environment: 'test' | 'production'
+  displayLabel?: string
+  [field: string]: unknown
+}) {
+  const supabase = await createClient()
+  await invokeShippingFunction(supabase, 'shipping-setup', { action: 'save_credentials', ...data })
+  revalidatePath('/admin/configuracion')
+  revalidateStorefront()
+}
+
+export async function disconnectShippingCarrier(carrier: 'correo_argentino' | 'andreani') {
+  const supabase = await createClient()
+  await invokeShippingFunction(supabase, 'shipping-setup', { action: 'disconnect', carrier })
+  revalidatePath('/admin/configuracion')
+  revalidateStorefront()
+}
+
+export async function saveShippingOriginAddress(data: {
+  street: string
+  number: string
+  floorApartment?: string
+  city: string
+  province: string
+  postalCode: string
+}) {
+  const supabase = await createClient()
+  await invokeShippingFunction(supabase, 'shipping-setup', { action: 'save_origin_address', ...data })
+  revalidatePath('/admin/configuracion')
+}
+
+// A diferencia de las credenciales, esto no es secreto (mismo criterio que
+// updateMercadoPagoSettings) — .update() directo sobre store_settings, sin pasar por la Edge
+// Function.
+export async function updateShippingSettings(data: { enabled: boolean }) {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('store_settings')
+    .update({ shipping_enabled: data.enabled })
+    .eq('id', ctx.storeSettingsId)
+
+  if (error) {
+    if (error.message.includes('store_settings_shipping_requires_carrier')) {
+      throw new Error('Conectá un transportista antes de habilitar el envío calculado.')
+    }
+    throw new Error(error.message)
+  }
   revalidatePath('/admin/configuracion')
   revalidateStorefront()
 }

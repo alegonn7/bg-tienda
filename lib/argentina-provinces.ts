@@ -1,0 +1,28 @@
+// Usado en el formulario de dirección de origen (admin/configuracion) y de destino
+// (checkout del storefront) — no existía nada parecido en el repo.
+export const ARGENTINA_PROVINCES = [
+  'Buenos Aires',
+  'Ciudad Autónoma de Buenos Aires',
+  'Catamarca',
+  'Chaco',
+  'Chubut',
+  'Córdoba',
+  'Corrientes',
+  'Entre Ríos',
+  'Formosa',
+  'Jujuy',
+  'La Pampa',
+  'La Rioja',
+  'Mendoza',
+  'Misiones',
+  'Neuquén',
+  'Río Negro',
+  'Salta',
+  'San Juan',
+  'San Luis',
+  'Santa Cruz',
+  'Santa Fe',
+  'Santiago del Estero',
+  'Tierra del Fuego',
+  'Tucumán',
+] as const

@@ -29,6 +29,10 @@ export function ProductForm({ product, categories, sizes: availableSizes, organi
   const [active, setActive] = useState(product?.active ?? true)
   const [price, setPrice] = useState(product?.price?.toString() ?? '0')
   const [stock, setStock] = useState(product?.stock?.toString() ?? '0')
+  const [weightGrams, setWeightGrams] = useState(product?.weightGrams?.toString() ?? '')
+  const [lengthCm, setLengthCm] = useState(product?.lengthCm?.toString() ?? '')
+  const [widthCm, setWidthCm] = useState(product?.widthCm?.toString() ?? '')
+  const [heightCm, setHeightCm] = useState(product?.heightCm?.toString() ?? '')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -88,6 +92,10 @@ export function ProductForm({ product, categories, sizes: availableSizes, organi
         active,
         price: Number(price) || 0,
         stock: Number(stock) || 0,
+        weightGrams: weightGrams.trim() === '' ? null : Number(weightGrams),
+        lengthCm: lengthCm.trim() === '' ? null : Number(lengthCm),
+        widthCm: widthCm.trim() === '' ? null : Number(widthCm),
+        heightCm: heightCm.trim() === '' ? null : Number(heightCm),
       }
       if (isEdit && product?.productBranchId) {
         await updateProduct(product.id, product.productBranchId, data)
@@ -193,6 +201,65 @@ export function ProductForm({ product, categories, sizes: availableSizes, organi
             className="mt-2 w-full px-4 py-3 text-[15px] outline-none"
             style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
           />
+        </div>
+      </div>
+
+      {/* Peso y dimensiones: opcionales — solo hacen falta para cotizar envío calculado. Si se
+          dejan vacíos, shipping-quote usa un default de la tienda o de la plataforma en vez de
+          bloquear la cotización. */}
+      <div>
+        <label className="block text-[12px] uppercase" style={{ letterSpacing: '0.06em', color: '#6b6b6b' }}>
+          Peso y dimensiones (opcional, para envío calculado)
+        </label>
+        <div className="mt-2 grid grid-cols-4 gap-3">
+          <div>
+            <span className="block text-[11px]" style={{ color: '#6b6b6b' }}>Peso (g)</span>
+            <input
+              type="number"
+              min={0}
+              value={weightGrams}
+              onChange={(e) => setWeightGrams(e.target.value)}
+              placeholder="500"
+              className="mt-1 w-full px-3 py-2.5 text-[14px] outline-none"
+              style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
+            />
+          </div>
+          <div>
+            <span className="block text-[11px]" style={{ color: '#6b6b6b' }}>Largo (cm)</span>
+            <input
+              type="number"
+              min={0}
+              value={lengthCm}
+              onChange={(e) => setLengthCm(e.target.value)}
+              placeholder="20"
+              className="mt-1 w-full px-3 py-2.5 text-[14px] outline-none"
+              style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
+            />
+          </div>
+          <div>
+            <span className="block text-[11px]" style={{ color: '#6b6b6b' }}>Ancho (cm)</span>
+            <input
+              type="number"
+              min={0}
+              value={widthCm}
+              onChange={(e) => setWidthCm(e.target.value)}
+              placeholder="15"
+              className="mt-1 w-full px-3 py-2.5 text-[14px] outline-none"
+              style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
+            />
+          </div>
+          <div>
+            <span className="block text-[11px]" style={{ color: '#6b6b6b' }}>Alto (cm)</span>
+            <input
+              type="number"
+              min={0}
+              value={heightCm}
+              onChange={(e) => setHeightCm(e.target.value)}
+              placeholder="10"
+              className="mt-1 w-full px-3 py-2.5 text-[14px] outline-none"
+              style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
+            />
+          </div>
         </div>
       </div>
 

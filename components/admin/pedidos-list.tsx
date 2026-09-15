@@ -19,7 +19,24 @@ type Order = {
   created_at: string
   payment_method: string
   mp_status: string | null
+  delivery_method: string | null
+  shipping_carrier: string | null
+  shipping_cost: number | null
+  shipping_street: string | null
+  shipping_number: string | null
+  shipping_floor_apartment: string | null
+  shipping_city: string | null
+  shipping_province: string | null
+  shipping_postal_code: string | null
+  customer_name: string | null
+  customer_phone: string | null
+  customer_note: string | null
   store_order_items: OrderItem[]
+}
+
+const CARRIER_LABEL: Record<string, string> = {
+  correo_argentino: 'Correo Argentino',
+  andreani: 'Andreani',
 }
 
 const STATUS_LABEL: Record<string, { text: string; color: string }> = {
@@ -119,6 +136,29 @@ export function PedidosList({ orders }: { orders: Order[] }) {
                 </li>
               ))}
             </ul>
+
+            {(order.customer_name || order.delivery_method === 'shipping') && (
+              <div className="mt-3 text-[13px]" style={{ color: '#111111' }}>
+                {order.customer_name && (
+                  <p>
+                    {order.customer_name}
+                    {order.customer_phone ? ` — ${order.customer_phone}` : ''}
+                  </p>
+                )}
+                {order.delivery_method === 'shipping' ? (
+                  <p style={{ color: '#6b6b6b' }}>
+                    Envío por {CARRIER_LABEL[order.shipping_carrier ?? ''] ?? order.shipping_carrier}
+                    {order.shipping_cost != null ? ` (${order.shipping_cost})` : ''} a{' '}
+                    {order.shipping_street} {order.shipping_number}
+                    {order.shipping_floor_apartment ? `, ${order.shipping_floor_apartment}` : ''},{' '}
+                    {order.shipping_city}, {order.shipping_province} (CP {order.shipping_postal_code})
+                  </p>
+                ) : (
+                  order.customer_name && <p style={{ color: '#6b6b6b' }}>Retira en el local</p>
+                )}
+                {order.customer_note && <p style={{ color: '#6b6b6b' }}>Nota: {order.customer_note}</p>}
+              </div>
+            )}
 
             {order.payment_method === 'mercadopago' && order.status === 'pending' && order.mp_status === 'approved' && (
               <p className="mt-3 text-[12px] font-medium" style={{ color: '#dc2626' }}>

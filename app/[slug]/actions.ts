@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { CartItem } from '@/components/cart-context'
 import { invokeMercadoPagoFunction } from '@/lib/mercadopago'
+import { invokeShippingFunction } from '@/lib/shipping'
 
 // Crea el pedido "pendiente" antes de abrir WhatsApp — corre con el cliente anon (visitante sin
 // sesión). Las policies públicas de INSERT de la Fase 01 (store_orders_public_insert /
@@ -52,13 +53,50 @@ export async function createPendingOrder(
 // un precio) y lo resuelve server-side contra store_catalog — el mismo dato que ya usa el
 // storefront para mostrarlo, nunca lo que mandó el navegador. Tampoco falla en silencio: no hay
 // canal de respaldo tipo WhatsApp si esto no funciona.
+type DeliveryAddress = {
+  street: string
+  number: string
+  floorApartment?: string
+  city: string
+  province: string
+  postalCode: string
+}
+
+type Delivery = {
+  method: 'pickup' | 'shipping'
+  // Opcionales: cuando una tienda no activó envíos, el botón de pago sigue funcionando
+  // exactamente igual que antes de este feature (sin pedir nombre/teléfono) — ver
+  // cart-drawer.tsx, que llama esto directo con solo { method: 'pickup' } en ese caso.
+  customerName?: string
+  customerPhone?: string
+  customerNote?: string
+  address?: DeliveryAddress
+}
+
+// Preview de costo de envío antes de pagar -- puramente informativo, no persiste nada. El
+// costo real que se cobra se recotiza server-to-server dentro de createMercadoPagoCheckout,
+// nunca se confía en este resultado (mismo principio que unit_price: nunca un monto que vino
+// del cliente).
+export async function quoteShipping(
+  organizationId: string,
+  destinationPostalCode: string,
+  items: { productId: string; quantity: number }[],
+): Promise<{ cost: number; estimatedDays: number | null; usedDefaultDimensions: boolean }> {
+  const supabase = await createClient()
+  return invokeShippingFunction(supabase, 'shipping-quote', { organizationId, destinationPostalCode, items })
+}
+
 export async function createMercadoPagoCheckout(
   organizationId: string,
   branchId: string,
   slug: string,
   items: { productId: string; size?: string; quantity: number }[],
+  delivery: Delivery,
 ): Promise<{ checkoutUrl: string }> {
   if (items.length === 0) throw new Error('El carrito está vacío.')
+  if (delivery.method === 'shipping' && !delivery.address?.postalCode) {
+    throw new Error('Falta la dirección de envío.')
+  }
 
   const supabase = await createClient()
 
@@ -90,6 +128,26 @@ export async function createMercadoPagoCheckout(
 
   const subtotal = orderItems.reduce((sum, i) => sum + i.subtotal, 0)
 
+  // Recotización autoritativa server-to-server: nunca se confía en el costo que ya se mostró
+  // en el navegador durante el preview (quoteShipping).
+  let shippingCost = 0
+  let shippingCarrier: string | null = null
+  if (delivery.method === 'shipping' && delivery.address) {
+    const { data: settings } = await supabase
+      .from('store_settings')
+      .select('shipping_carrier')
+      .eq('organization_id', organizationId)
+      .single()
+    shippingCarrier = settings?.shipping_carrier ?? null
+
+    const result = await invokeShippingFunction<{ cost: number }>(supabase, 'shipping-quote', {
+      organizationId,
+      destinationPostalCode: delivery.address.postalCode,
+      items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+    })
+    shippingCost = result.cost
+  }
+
   const { data: order, error: orderError } = await supabase
     .from('store_orders')
     .insert({
@@ -98,7 +156,19 @@ export async function createMercadoPagoCheckout(
       status: 'pending',
       payment_method: 'mercadopago',
       subtotal,
-      total: subtotal, // mercadopago-checkout fija el total final (+ comisión)
+      total: subtotal, // mercadopago-checkout fija el total final (+ comisión + envío)
+      customer_name: delivery.customerName || null,
+      customer_phone: delivery.customerPhone || null,
+      customer_note: delivery.customerNote || null,
+      delivery_method: delivery.method,
+      shipping_carrier: shippingCarrier,
+      shipping_cost: shippingCost || null,
+      shipping_street: delivery.address?.street || null,
+      shipping_number: delivery.address?.number || null,
+      shipping_floor_apartment: delivery.address?.floorApartment || null,
+      shipping_city: delivery.address?.city || null,
+      shipping_province: delivery.address?.province || null,
+      shipping_postal_code: delivery.address?.postalCode || null,
     })
     .select('id')
     .single()

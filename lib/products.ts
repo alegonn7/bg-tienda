@@ -12,6 +12,10 @@ export type Product = {
   stock: number | null
   productBranchId?: string
   branchActive?: boolean
+  weightGrams?: number | null
+  lengthCm?: number | null
+  widthCm?: number | null
+  heightCm?: number | null
 }
 
 export function productImage(product: Product): string {

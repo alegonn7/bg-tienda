@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { X, Minus, Plus } from 'lucide-react'
 import {
   useCart,
@@ -13,6 +14,7 @@ import { createPendingOrder, createMercadoPagoCheckout } from '@/app/[slug]/acti
 import { formatPrice } from '@/lib/format'
 
 export function CartDrawer({ store }: { store: Store }) {
+  const router = useRouter()
   const { items, isOpen, closeCart, removeItem, updateQuantity } = useCart()
   const brandName = store.storeName ?? store.organizationName
   const [sending, setSending] = useState(false)
@@ -29,9 +31,21 @@ export function CartDrawer({ store }: { store: Store }) {
     setSending(false)
   }
 
+  // Si la tienda activó envío calculado, hace falta pedir dirección — eso vive en su propia
+  // página (/[slug]/checkout), no en este drawer angosto. Si NO lo activó, el botón sigue
+  // funcionando exactamente igual que antes de que existiera el módulo de envíos: pago directo
+  // sin pedir nada más, sin ningún cambio de comportamiento para esas tiendas.
+  function handleMercadoPagoCheckout() {
+    if (store.shippingEnabled) {
+      router.push(`/${store.slug}/checkout`)
+      return
+    }
+    payWithMercadoPago()
+  }
+
   // A diferencia de WhatsApp, si esto falla no hay canal de respaldo — el error se muestra
   // inline. window.location.href (no window.open) porque es una navegación real a pagar.
-  async function handleMercadoPagoCheckout() {
+  async function payWithMercadoPago() {
     setMpSending(true)
     setMpError('')
     try {
@@ -40,6 +54,7 @@ export function CartDrawer({ store }: { store: Store }) {
         store.branchId,
         store.slug,
         items.map((item) => ({ productId: item.product.id, size: item.size, quantity: item.quantity })),
+        { method: 'pickup' },
       )
       window.location.href = checkoutUrl
     } catch (err) {

@@ -88,6 +88,10 @@ type AdminRow = {
   is_active: boolean
   featured: boolean
   created_at: string
+  weight_grams: number | null
+  length_cm: number | null
+  width_cm: number | null
+  height_cm: number | null
   categories: { name: string } | null
   products_branch: { id: string; price_sale: number | null; stock_quantity: number | null; is_active: boolean }[]
 }
@@ -108,6 +112,10 @@ function mapAdminRow(row: AdminRow): Product {
     stock: branch?.stock_quantity ?? null,
     productBranchId: branch?.id,
     branchActive: branch?.is_active ?? true,
+    weightGrams: row.weight_grams,
+    lengthCm: row.length_cm,
+    widthCm: row.width_cm,
+    heightCm: row.height_cm,
   }
 }
 
