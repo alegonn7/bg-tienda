@@ -19,10 +19,20 @@ export async function GET(request: Request) {
   cookieStore.delete('mp_oauth_state')
 
   if (mpError) {
+    console.error('[mercadopago/callback] Mercado Pago volvió con error', {
+      mpError,
+      description: url.searchParams.get('error_description'),
+    })
     return NextResponse.redirect(new URL(`/admin/configuracion?mp_error=${encodeURIComponent(mpError)}`, url))
   }
 
   if (!code || !state || !expectedState || state !== expectedState) {
+    console.error('[mercadopago/callback] state inválido', {
+      hasCode: !!code,
+      hasState: !!state,
+      hasExpectedState: !!expectedState,
+      match: state === expectedState,
+    })
     return NextResponse.redirect(new URL('/admin/configuracion?mp_error=invalid_state', url))
   }
 
@@ -31,7 +41,8 @@ export async function GET(request: Request) {
   try {
     await invokeMercadoPagoFunction(supabase, 'mercadopago-setup', { action: 'exchange_code', code })
     return NextResponse.redirect(new URL('/admin/configuracion?mp_connected=1', url))
-  } catch {
+  } catch (err) {
+    console.error('[mercadopago/callback] exchange_code failed', err)
     return NextResponse.redirect(new URL('/admin/configuracion?mp_error=exchange_failed', url))
   }
 }

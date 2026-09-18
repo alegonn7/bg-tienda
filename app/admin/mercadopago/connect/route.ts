@@ -31,8 +31,10 @@ export async function GET(request: Request) {
       'mercadopago-setup',
       { action: 'get_authorize_url', state },
     )
+    console.log('[mercadopago/connect] org', ctx.organizationId, 'authorizeUrl', authorizeUrl)
     return NextResponse.redirect(authorizeUrl)
-  } catch {
+  } catch (err) {
+    console.error('[mercadopago/connect] get_authorize_url failed', err)
     return NextResponse.redirect(new URL('/admin/configuracion?mp_error=setup_failed', url))
   }
 }
