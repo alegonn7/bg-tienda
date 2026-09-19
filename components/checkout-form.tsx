@@ -25,6 +25,7 @@ export function CheckoutForm({ store }: { store: Store }) {
   const [method, setMethod] = useState<DeliveryMethod>('pickup')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
+  const [customerEmail, setCustomerEmail] = useState('')
   const [customerNote, setCustomerNote] = useState('')
 
   const [street, setStreet] = useState('')
@@ -87,6 +88,7 @@ export function CheckoutForm({ store }: { store: Store }) {
           method,
           customerName,
           customerPhone,
+          customerEmail,
           customerNote: customerNote || undefined,
           address:
             method === 'shipping'
@@ -176,6 +178,22 @@ export function CheckoutForm({ store }: { store: Store }) {
             className="mt-2 w-full px-4 py-3 text-[15px] outline-none"
             style={inputStyle}
           />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-[12px] uppercase" style={labelStyle}>
+            Email *
+          </label>
+          <input
+            type="email"
+            value={customerEmail}
+            onChange={(e) => setCustomerEmail(e.target.value)}
+            required
+            className="mt-2 w-full px-4 py-3 text-[15px] outline-none"
+            style={inputStyle}
+          />
+          <p className="mt-1 text-[12px]" style={{ color: '#6b6b6b' }}>
+            Te mandamos ahí el detalle de tu compra.
+          </p>
         </div>
       </div>
 
@@ -322,7 +340,7 @@ export function CheckoutForm({ store }: { store: Store }) {
       {store.showPrices && (
         <div className="flex items-center justify-between" style={{ borderTop: '1px solid #e5e5e5', paddingTop: '1rem' }}>
           <span className="text-[14px]" style={{ color: '#6b6b6b' }}>
-            Total (más la comisión de Mercado Pago que se muestra al pagar)
+            Total
           </span>
           <span className="text-[16px] font-medium" style={{ color: '#111111' }}>
             {formatPrice(total)}

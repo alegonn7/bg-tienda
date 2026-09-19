@@ -90,7 +90,7 @@ export default async function ConfiguracionPage({
           Mercado Pago
         </h2>
         <p className="mb-6 text-[13px]" style={{ color: '#6b6b6b' }}>
-          Cobrá pedidos online. La plataforma cobra una comisión, que se suma al total que paga el cliente.
+          Cobrá pedidos online. La plataforma cobra una comisión, que se descuenta de lo que recibís vos — el cliente nunca paga de más.
         </p>
         <MercadoPagoSettingsForm
           connected={mpStatus.connected}

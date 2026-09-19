@@ -20,6 +20,7 @@ export function CartDrawer({ store }: { store: Store }) {
   const [sending, setSending] = useState(false)
   const [mpSending, setMpSending] = useState(false)
   const [mpError, setMpError] = useState('')
+  const [mpEmail, setMpEmail] = useState('')
   const subtotal = items.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0)
 
   async function handleCheckout() {
@@ -54,7 +55,7 @@ export function CartDrawer({ store }: { store: Store }) {
         store.branchId,
         store.slug,
         items.map((item) => ({ productId: item.product.id, size: item.size, quantity: item.quantity })),
-        { method: 'pickup' },
+        { method: 'pickup', customerEmail: mpEmail },
       )
       window.location.href = checkoutUrl
     } catch (err) {
@@ -154,10 +155,23 @@ export function CartDrawer({ store }: { store: Store }) {
             </p>
             {store.mercadopagoAvailable && (
               <>
+                {/* Solo acá: si la tienda tiene envío activado, handleMercadoPagoCheckout manda
+                    a /checkout, que ya tiene su propio campo de email en el formulario completo. */}
+                {!store.shippingEnabled && (
+                  <input
+                    type="email"
+                    value={mpEmail}
+                    onChange={(e) => setMpEmail(e.target.value)}
+                    placeholder="Tu email (para mandarte el comprobante)"
+                    required
+                    className="mt-3 w-full px-4 py-3 text-[14px] outline-none"
+                    style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
+                  />
+                )}
                 <button
                   type="button"
                   onClick={handleMercadoPagoCheckout}
-                  disabled={mpSending}
+                  disabled={mpSending || (!store.shippingEnabled && !mpEmail)}
                   className="mt-3 w-full px-4 py-3 text-[14px] disabled:opacity-60"
                   style={{ border: '1px solid #111111', color: '#111111', backgroundColor: '#fff' }}
                 >

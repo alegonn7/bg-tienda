@@ -66,9 +66,10 @@ type Delivery = {
   method: 'pickup' | 'shipping'
   // Opcionales: cuando una tienda no activó envíos, el botón de pago sigue funcionando
   // exactamente igual que antes de este feature (sin pedir nombre/teléfono) — ver
-  // cart-drawer.tsx, que llama esto directo con solo { method: 'pickup' } en ese caso.
+  // cart-drawer.tsx, que llama esto directo con solo { method: 'pickup', customerEmail } en ese caso.
   customerName?: string
   customerPhone?: string
+  customerEmail?: string
   customerNote?: string
   address?: DeliveryAddress
 }
@@ -98,91 +99,101 @@ export async function createMercadoPagoCheckout(
     throw new Error('Falta la dirección de envío.')
   }
 
-  const supabase = await createClient()
+  // Todo lo que sigue toca servicios externos (Supabase, shipping-quote, mercadopago-checkout) --
+  // a diferencia de las validaciones de arriba, una falla acá no siempre es un Error prolijo
+  // (ver createPendingOrder para el mismo patrón). Sin este try/catch, una excepción rara se
+  // propaga muda hasta el mensaje genérico de Next.js sin dejar rastro en los logs de Vercel.
+  try {
+    const supabase = await createClient()
 
-  const productIds = [...new Set(items.map((i) => i.productId))]
-  const { data: catalogRows, error: catalogError } = await supabase
-    .from('store_catalog')
-    .select('product_id, name, price_sale')
-    .eq('branch_id', branchId)
-    .in('product_id', productIds)
+    const productIds = [...new Set(items.map((i) => i.productId))]
+    const { data: catalogRows, error: catalogError } = await supabase
+      .from('store_catalog')
+      .select('product_id, name, price_sale')
+      .eq('branch_id', branchId)
+      .in('product_id', productIds)
 
-  if (catalogError) throw new Error(catalogError.message)
+    if (catalogError) throw new Error(catalogError.message)
 
-  const priceByProduct = new Map((catalogRows ?? []).map((row) => [row.product_id, row]))
+    const priceByProduct = new Map((catalogRows ?? []).map((row) => [row.product_id, row]))
 
-  const orderItems = items.map((item) => {
-    const row = priceByProduct.get(item.productId)
-    if (!row || row.price_sale == null) {
-      throw new Error(`"${row?.name ?? 'Un producto'}" ya no está disponible para pagar online.`)
+    const orderItems = items.map((item) => {
+      const row = priceByProduct.get(item.productId)
+      if (!row || row.price_sale == null) {
+        throw new Error(`"${row?.name ?? 'Un producto'}" ya no está disponible para pagar online.`)
+      }
+      return {
+        product_id: item.productId,
+        product_name: row.name as string,
+        size: item.size || null,
+        quantity: item.quantity,
+        unit_price: row.price_sale as number,
+        subtotal: (row.price_sale as number) * item.quantity,
+      }
+    })
+
+    const subtotal = orderItems.reduce((sum, i) => sum + i.subtotal, 0)
+
+    // Recotización autoritativa server-to-server: nunca se confía en el costo que ya se mostró
+    // en el navegador durante el preview (quoteShipping).
+    let shippingCost = 0
+    let shippingCarrier: string | null = null
+    if (delivery.method === 'shipping' && delivery.address) {
+      const { data: settings } = await supabase
+        .from('store_settings')
+        .select('shipping_carrier')
+        .eq('organization_id', organizationId)
+        .single()
+      shippingCarrier = settings?.shipping_carrier ?? null
+
+      const result = await invokeShippingFunction<{ cost: number }>(supabase, 'shipping-quote', {
+        organizationId,
+        destinationPostalCode: delivery.address.postalCode,
+        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+      })
+      shippingCost = result.cost
     }
-    return {
-      product_id: item.productId,
-      product_name: row.name as string,
-      size: item.size || null,
-      quantity: item.quantity,
-      unit_price: row.price_sale as number,
-      subtotal: (row.price_sale as number) * item.quantity,
-    }
-  })
 
-  const subtotal = orderItems.reduce((sum, i) => sum + i.subtotal, 0)
-
-  // Recotización autoritativa server-to-server: nunca se confía en el costo que ya se mostró
-  // en el navegador durante el preview (quoteShipping).
-  let shippingCost = 0
-  let shippingCarrier: string | null = null
-  if (delivery.method === 'shipping' && delivery.address) {
-    const { data: settings } = await supabase
-      .from('store_settings')
-      .select('shipping_carrier')
-      .eq('organization_id', organizationId)
+    const { data: order, error: orderError } = await supabase
+      .from('store_orders')
+      .insert({
+        organization_id: organizationId,
+        branch_id: branchId,
+        status: 'pending',
+        payment_method: 'mercadopago',
+        subtotal,
+        total: subtotal, // mercadopago-checkout fija el total final (+ envío; la comisión no la paga el cliente)
+        customer_name: delivery.customerName || null,
+        customer_phone: delivery.customerPhone || null,
+        customer_email: delivery.customerEmail || null,
+        customer_note: delivery.customerNote || null,
+        delivery_method: delivery.method,
+        shipping_carrier: shippingCarrier,
+        shipping_cost: shippingCost || null,
+        shipping_street: delivery.address?.street || null,
+        shipping_number: delivery.address?.number || null,
+        shipping_floor_apartment: delivery.address?.floorApartment || null,
+        shipping_city: delivery.address?.city || null,
+        shipping_province: delivery.address?.province || null,
+        shipping_postal_code: delivery.address?.postalCode || null,
+      })
+      .select('id')
       .single()
-    shippingCarrier = settings?.shipping_carrier ?? null
 
-    const result = await invokeShippingFunction<{ cost: number }>(supabase, 'shipping-quote', {
-      organizationId,
-      destinationPostalCode: delivery.address.postalCode,
-      items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+    if (orderError) throw new Error('No se pudo crear el pedido. Intentá de nuevo.')
+
+    const { error: itemsError } = await supabase
+      .from('store_order_items')
+      .insert(orderItems.map((item) => ({ ...item, store_order_id: order.id })))
+
+    if (itemsError) throw new Error('No se pudo crear el pedido. Intentá de nuevo.')
+
+    return await invokeMercadoPagoFunction<{ checkoutUrl: string }>(supabase, 'mercadopago-checkout', {
+      storeOrderId: order.id,
+      slug,
     })
-    shippingCost = result.cost
+  } catch (err) {
+    console.error('createMercadoPagoCheckout:', err instanceof Error ? err.message : err)
+    throw err
   }
-
-  const { data: order, error: orderError } = await supabase
-    .from('store_orders')
-    .insert({
-      organization_id: organizationId,
-      branch_id: branchId,
-      status: 'pending',
-      payment_method: 'mercadopago',
-      subtotal,
-      total: subtotal, // mercadopago-checkout fija el total final (+ comisión + envío)
-      customer_name: delivery.customerName || null,
-      customer_phone: delivery.customerPhone || null,
-      customer_note: delivery.customerNote || null,
-      delivery_method: delivery.method,
-      shipping_carrier: shippingCarrier,
-      shipping_cost: shippingCost || null,
-      shipping_street: delivery.address?.street || null,
-      shipping_number: delivery.address?.number || null,
-      shipping_floor_apartment: delivery.address?.floorApartment || null,
-      shipping_city: delivery.address?.city || null,
-      shipping_province: delivery.address?.province || null,
-      shipping_postal_code: delivery.address?.postalCode || null,
-    })
-    .select('id')
-    .single()
-
-  if (orderError) throw new Error('No se pudo crear el pedido. Intentá de nuevo.')
-
-  const { error: itemsError } = await supabase
-    .from('store_order_items')
-    .insert(orderItems.map((item) => ({ ...item, store_order_id: order.id })))
-
-  if (itemsError) throw new Error('No se pudo crear el pedido. Intentá de nuevo.')
-
-  return invokeMercadoPagoFunction<{ checkoutUrl: string }>(supabase, 'mercadopago-checkout', {
-    storeOrderId: order.id,
-    slug,
-  })
 }

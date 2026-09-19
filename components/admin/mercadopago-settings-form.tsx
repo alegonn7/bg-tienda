@@ -121,7 +121,8 @@ export function MercadoPagoSettingsForm({
               style={inputStyle}
             />
             <p className="mt-1 text-[12px]" style={{ color: '#6b6b6b' }}>
-              Se suma al total que paga el cliente. Dejalo vacío para usar el valor general.
+              Se descuenta de lo que recibís vos por cada venta — el cliente paga el precio de
+              lista + envío, sin recargo. Dejalo vacío para usar el valor general.
             </p>
           </div>
 
