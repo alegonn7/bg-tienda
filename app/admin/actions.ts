@@ -254,7 +254,7 @@ export async function updateStoreBranding(data: StoreBrandingData) {
     })
     .eq('id', ctx.storeSettingsId)
   if (error) throw new Error(error.message)
-  revalidatePath('/admin/configuracion')
+  revalidatePath('/admin/personalizacion')
   revalidateStorefront()
 }
 
@@ -272,7 +272,7 @@ export async function updateStoreFavicon(faviconUrl: string) {
     .update({ favicon_url: faviconUrl })
     .eq('id', ctx.storeSettingsId)
   if (error) throw new Error(error.message)
-  revalidatePath('/admin/configuracion')
+  revalidatePath('/admin/personalizacion')
   revalidateStorefront()
 }
 
@@ -293,7 +293,7 @@ export async function updateStoreLogo(logoUrl: string) {
     .select('id')
     .single()
   if (error) throw new Error('Solo el dueño de la tienda puede cambiar el logo.')
-  revalidatePath('/admin/configuracion')
+  revalidatePath('/admin/personalizacion')
   revalidateStorefront()
 }
 
@@ -309,12 +309,13 @@ export async function updateStoreLogoDisplay(data: { logoHeight: number; headerD
     .update({ logo_height: data.logoHeight, header_display: data.headerDisplay })
     .eq('id', ctx.storeSettingsId)
   if (error) throw new Error(error.message)
-  revalidatePath('/admin/configuracion')
+  revalidatePath('/admin/personalizacion')
   revalidateStorefront()
 }
 
-// Mercado Pago — conectar/desconectar la cuenta de la tienda y editar la comisión propia
-// (mp_fee_percentage) o si el pago online está habilitado. El estado real (conectado o no,
+// Mercado Pago — conectar/desconectar la cuenta de la tienda y habilitar/deshabilitar el pago
+// online. La comisión NO la elige la tienda -- es fija de la plataforma (MP_PLATFORM_FEE_PERCENTAGE
+// en mercadopago-checkout, bg-gestion), nunca configurable acá. El estado real (conectado o no,
 // email del vendedor) vive en store_mercadopago_credentials, que no tiene ninguna policy
 // pública ni de sesión — por eso getMercadoPagoStatus/disconnectMercadoPago pasan por la Edge
 // Function mercadopago-setup en vez de un .select()/.delete() directo, que fallaría igual.
@@ -327,14 +328,14 @@ export async function getMercadoPagoStatus() {
   )
 }
 
-export async function updateMercadoPagoSettings(data: { feePercentage: number | null; enabled: boolean }) {
+export async function updateMercadoPagoSettings(data: { enabled: boolean }) {
   const ctx = await getCurrentOrgForAdmin()
   if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
 
   const supabase = await createClient()
   const { error } = await supabase
     .from('store_settings')
-    .update({ mp_fee_percentage: data.feePercentage, payment_online_enabled: data.enabled })
+    .update({ payment_online_enabled: data.enabled })
     .eq('id', ctx.storeSettingsId)
 
   if (error) {

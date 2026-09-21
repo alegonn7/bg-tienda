@@ -51,8 +51,11 @@ export default async function AdminLayout({
               <Link href="/admin/hero" className="text-[13px]" style={{ color: '#6b6b6b' }}>
                 Banner
               </Link>
+              <Link href="/admin/personalizacion" className="text-[13px]" style={{ color: '#6b6b6b' }}>
+                Personalización
+              </Link>
               <Link href="/admin/configuracion" className="text-[13px]" style={{ color: '#6b6b6b' }}>
-                Mi Tienda
+                Configuración
               </Link>
             </nav>
           )}

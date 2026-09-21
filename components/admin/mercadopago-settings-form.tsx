@@ -4,20 +4,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateMercadoPagoSettings, disconnectMercadoPago } from '@/app/admin/actions'
 
-const inputStyle = {
-  border: '1px solid #e5e5e5',
-  backgroundColor: '#fff',
-  color: '#111111',
-} as const
-
-const labelStyle = { letterSpacing: '0.06em', color: '#6b6b6b' } as const
-
 type Props = {
   connected: boolean
   mpEmail: string | null
   liveMode: boolean | null
   showPrices: boolean
-  feePercentage: number | null
   enabled: boolean
   mpConnected?: boolean
   mpError?: string
@@ -28,13 +19,11 @@ export function MercadoPagoSettingsForm({
   mpEmail,
   liveMode,
   showPrices,
-  feePercentage,
   enabled,
   mpConnected,
   mpError,
 }: Props) {
   const router = useRouter()
-  const [fee, setFee] = useState(feePercentage != null ? String(feePercentage) : '')
   const [paymentEnabled, setPaymentEnabled] = useState(enabled)
   const [saving, setSaving] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
@@ -47,11 +36,7 @@ export function MercadoPagoSettingsForm({
     setError('')
     setSaved(false)
     try {
-      const parsed = fee.trim() === '' ? null : Number(fee)
-      if (parsed != null && (Number.isNaN(parsed) || parsed < 0 || parsed > 100)) {
-        throw new Error('La comisión tiene que ser un número entre 0 y 100.')
-      }
-      await updateMercadoPagoSettings({ feePercentage: parsed, enabled: paymentEnabled })
+      await updateMercadoPagoSettings({ enabled: paymentEnabled })
       setSaved(true)
       router.refresh()
     } catch (err) {
@@ -104,27 +89,6 @@ export function MercadoPagoSettingsForm({
             Conectado como: <strong>{mpEmail ?? 'cuenta de Mercado Pago'}</strong>
             {liveMode === false && ' (cuenta de prueba)'}
           </p>
-
-          <div>
-            <label className="block text-[12px] uppercase" style={labelStyle}>
-              Comisión de la plataforma (%)
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              step="0.01"
-              value={fee}
-              onChange={(e) => setFee(e.target.value)}
-              placeholder="Usa el valor general de la plataforma"
-              className="mt-2 w-full px-4 py-3 text-[15px] outline-none"
-              style={inputStyle}
-            />
-            <p className="mt-1 text-[12px]" style={{ color: '#6b6b6b' }}>
-              Se descuenta de lo que recibís vos por cada venta — el cliente paga el precio de
-              lista + envío, sin recargo. Dejalo vacío para usar el valor general.
-            </p>
-          </div>
 
           <div className="flex items-center gap-3">
             <input
