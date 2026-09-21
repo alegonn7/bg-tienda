@@ -10,6 +10,14 @@ import { invokeShippingFunction } from '@/lib/shipping'
 // store_order_items_public_insert) son las que autorizan esto, no hace falta service-role acá.
 // `pending` no descuenta ni reserva stock — eso recién pasa cuando el staff confirma desde
 // /admin/pedidos (Fase 06, confirm_store_order).
+//
+// El id se genera acá (no se deja default gen_random_uuid() de la tabla) a propósito: pedirle a
+// Postgres el id de vuelta con .select() implica un RETURNING, que en RLS exige permiso de
+// SELECT sobre esa fila -- store_orders nunca tuvo un SELECT público (a propósito, tiene
+// nombre/teléfono/dirección del cliente), así que .insert().select() rechaza el insert entero
+// con "new row violates row-level security policy" para cualquier visitante anónimo real. Solo
+// "funcionaba" en pruebas hechas con una sesión de staff ya logueada en /admin (esa sí tiene
+// SELECT vía store_orders_org) -- por eso el bug pasó desapercibido hasta un cliente real.
 export async function createPendingOrder(
   organizationId: string,
   branchId: string,
@@ -18,12 +26,11 @@ export async function createPendingOrder(
   if (items.length === 0) return null
 
   const supabase = await createClient()
+  const orderId = crypto.randomUUID()
 
-  const { data: order, error } = await supabase
+  const { error } = await supabase
     .from('store_orders')
-    .insert({ organization_id: organizationId, branch_id: branchId, status: 'pending' })
-    .select('id')
-    .single()
+    .insert({ id: orderId, organization_id: organizationId, branch_id: branchId, status: 'pending' })
 
   if (error) {
     console.error('createPendingOrder: no se pudo crear store_orders', error.message)
@@ -32,7 +39,7 @@ export async function createPendingOrder(
 
   const { error: itemsError } = await supabase.from('store_order_items').insert(
     items.map((item) => ({
-      store_order_id: order.id,
+      store_order_id: orderId,
       product_id: item.product.id,
       product_name: item.product.name,
       size: item.size || null,
@@ -45,7 +52,7 @@ export async function createPendingOrder(
     return null
   }
 
-  return order.id
+  return orderId
 }
 
 // Pedido con pago online. A diferencia de createPendingOrder, acá sí importa el precio: el
@@ -166,9 +173,14 @@ export async function createMercadoPagoCheckout(
       shippingOriginalCost = result.originalCost > result.cost ? result.originalCost : null
     }
 
-    const { data: order, error: orderError } = await supabase
+    // Mismo motivo que en createPendingOrder: generar el id acá evita el .select() con
+    // RETURNING que un cliente anónimo real no tiene permiso de hacer (sin SELECT público en
+    // store_orders) -- esa es la causa real del bug reportado en mobile.
+    const orderId = crypto.randomUUID()
+    const { error: orderError } = await supabase
       .from('store_orders')
       .insert({
+        id: orderId,
         organization_id: organizationId,
         branch_id: branchId,
         status: 'pending',
@@ -192,8 +204,6 @@ export async function createMercadoPagoCheckout(
         shipping_province: delivery.address?.province || null,
         shipping_postal_code: delivery.address?.postalCode || null,
       })
-      .select('id')
-      .single()
 
     if (orderError) {
       console.error('createMercadoPagoCheckout: insert store_orders falló', orderError.code, orderError.message, orderError.details, orderError.hint)
@@ -202,7 +212,7 @@ export async function createMercadoPagoCheckout(
 
     const { error: itemsError } = await supabase
       .from('store_order_items')
-      .insert(orderItems.map((item) => ({ ...item, store_order_id: order.id })))
+      .insert(orderItems.map((item) => ({ ...item, store_order_id: orderId })))
 
     if (itemsError) {
       console.error('createMercadoPagoCheckout: insert store_order_items falló', itemsError.code, itemsError.message, itemsError.details, itemsError.hint)
@@ -210,7 +220,7 @@ export async function createMercadoPagoCheckout(
     }
 
     return await invokeMercadoPagoFunction<{ checkoutUrl: string }>(supabase, 'mercadopago-checkout', {
-      storeOrderId: order.id,
+      storeOrderId: orderId,
       slug,
     })
   } catch (err) {
