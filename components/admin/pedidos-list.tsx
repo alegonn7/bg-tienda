@@ -259,10 +259,10 @@ export function PedidosList({ orders }: { orders: Order[] }) {
                     type="button"
                     onClick={() => handleRefund(order.id)}
                     disabled={busyId === order.id}
-                    className="text-[13px] disabled:opacity-60"
-                    style={{ color: '#d81b8a' }}
+                    className="px-4 py-2 text-[13px] disabled:opacity-60"
+                    style={{ border: '1px solid #d81b8a', color: '#d81b8a', backgroundColor: '#fff' }}
                   >
-                    {busyId === order.id ? 'Reembolsando...' : 'Reembolsar'}
+                    {busyId === order.id ? 'Reembolsando...' : 'Reembolsar →'}
                   </button>
                 </div>
               )}
