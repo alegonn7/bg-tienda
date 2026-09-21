@@ -241,6 +241,40 @@ export function CheckoutForm({ store }: { store: Store }) {
           {customerNote && <p className="mt-1">Nota: {customerNote}</p>}
         </div>
 
+        {store.mercadopagoAvailable && store.transferEnabled && (
+          <div>
+            <label className="block text-[12px] uppercase" style={labelStyle}>
+              Cómo pagás
+            </label>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('mercadopago')}
+                className="px-4 py-2 text-[13px]"
+                style={{
+                  border: `1px solid ${paymentMethod === 'mercadopago' ? '#111111' : '#e5e5e5'}`,
+                  backgroundColor: paymentMethod === 'mercadopago' ? '#111111' : '#fff',
+                  color: paymentMethod === 'mercadopago' ? '#fff' : '#6b6b6b',
+                }}
+              >
+                Mercado Pago
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('transfer')}
+                className="px-4 py-2 text-[13px]"
+                style={{
+                  border: `1px solid ${paymentMethod === 'transfer' ? '#111111' : '#e5e5e5'}`,
+                  backgroundColor: paymentMethod === 'transfer' ? '#111111' : '#fff',
+                  color: paymentMethod === 'transfer' ? '#fff' : '#6b6b6b',
+                }}
+              >
+                Transferencia
+              </button>
+            </div>
+          </div>
+        )}
+
         {store.showPrices && (
           <div className="flex flex-col gap-2" style={{ borderTop: '1px solid #e5e5e5', paddingTop: '1rem' }}>
             <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
@@ -399,41 +433,6 @@ export function CheckoutForm({ store }: { store: Store }) {
         </div>
       </div>
 
-      {/* Método de pago */}
-      {store.mercadopagoAvailable && store.transferEnabled && (
-        <div>
-          <label className="block text-[12px] uppercase" style={labelStyle}>
-            Cómo pagás
-          </label>
-          <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPaymentMethod('mercadopago')}
-              className="px-4 py-2 text-[13px]"
-              style={{
-                border: `1px solid ${paymentMethod === 'mercadopago' ? '#111111' : '#e5e5e5'}`,
-                backgroundColor: paymentMethod === 'mercadopago' ? '#111111' : '#fff',
-                color: paymentMethod === 'mercadopago' ? '#fff' : '#6b6b6b',
-              }}
-            >
-              Mercado Pago
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentMethod('transfer')}
-              className="px-4 py-2 text-[13px]"
-              style={{
-                border: `1px solid ${paymentMethod === 'transfer' ? '#111111' : '#e5e5e5'}`,
-                backgroundColor: paymentMethod === 'transfer' ? '#111111' : '#fff',
-                color: paymentMethod === 'transfer' ? '#fff' : '#6b6b6b',
-              }}
-            >
-              Transferencia
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Método de entrega */}
       <div>
         <label className="block text-[12px] uppercase" style={labelStyle}>
@@ -590,26 +589,15 @@ export function CheckoutForm({ store }: { store: Store }) {
             <span>Subtotal</span>
             <span>{formatPrice(subtotal)}</span>
           </div>
-          {feeAmount > 0 && (
-            <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
-              <span>Comisión de servicio ({PLATFORM_FEE_PERCENTAGE}%)</span>
-              <span>{formatPrice(feeAmount)}</span>
-            </div>
-          )}
           {method === 'shipping' && quote && (
             <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
               <span>Envío</span>
               <span>{quote.isFree ? 'Gratis' : formatPrice(shippingCost)}</span>
             </div>
           )}
-          <div className="flex items-center justify-between" style={{ paddingTop: '0.5rem', borderTop: '1px solid #f0f0ee' }}>
-            <span className="text-[14px]" style={{ color: '#6b6b6b' }}>
-              Total
-            </span>
-            <span className="text-[16px] font-medium" style={{ color: '#111111' }}>
-              {formatPrice(total)}
-            </span>
-          </div>
+          <p className="text-[12px]" style={{ color: '#6b6b6b' }}>
+            El total final se ve en el próximo paso, según cómo elijas pagar.
+          </p>
         </div>
       )}
 
@@ -624,7 +612,7 @@ export function CheckoutForm({ store }: { store: Store }) {
         disabled={method === 'shipping' && !quote}
         className="pc-btn w-full px-4 py-3 text-[14px] disabled:opacity-60"
       >
-        Confirmar →
+        Continuar →
       </button>
     </form>
   )
