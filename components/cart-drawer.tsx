@@ -142,17 +142,21 @@ export function CartDrawer({ store }: { store: Store }) {
                 {store.showPrices ? formatPrice(subtotal) : 'A confirmar'}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={handleCheckout}
-              disabled={sending}
-              className="pc-btn w-full px-4 py-3 text-[14px] disabled:opacity-60"
-            >
-              {sending ? 'Enviando pedido...' : 'Consultar por WhatsApp →'}
-            </button>
-            <p className="mt-3 text-[12px]" style={{ color: '#6b6b6b' }}>
-              Nos contactamos para confirmar tu pedido y acordar el diseño.
-            </p>
+            {store.whatsappOrdersEnabled && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCheckout}
+                  disabled={sending}
+                  className="pc-btn w-full px-4 py-3 text-[14px] disabled:opacity-60"
+                >
+                  {sending ? 'Enviando pedido...' : 'Consultar por WhatsApp →'}
+                </button>
+                <p className="mt-3 text-[12px]" style={{ color: '#6b6b6b' }}>
+                  Nos contactamos para confirmar tu pedido y acordar el diseño.
+                </p>
+              </>
+            )}
             {store.mercadopagoAvailable && (
               <>
                 {/* Solo acá: si la tienda tiene envío activado, handleMercadoPagoCheckout manda

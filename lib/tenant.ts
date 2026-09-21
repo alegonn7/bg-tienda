@@ -14,6 +14,7 @@ export type Store = {
   accentColor: string | null
   whatsappNumber: string | null
   whatsappMessageTemplate: string | null
+  whatsappOrdersEnabled: boolean
   instagramUrl: string | null
   facebookUrl: string | null
   showPrices: boolean
@@ -51,6 +52,7 @@ export const getStoreBySlug = cache(async (slug: string): Promise<Store | null> 
     accentColor: data.accent_color,
     whatsappNumber: data.whatsapp_number,
     whatsappMessageTemplate: data.whatsapp_message_template,
+    whatsappOrdersEnabled: data.whatsapp_orders_enabled ?? true,
     instagramUrl: data.instagram_url,
     facebookUrl: data.facebook_url,
     showPrices: data.show_prices,

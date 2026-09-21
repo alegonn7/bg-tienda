@@ -5,6 +5,7 @@ import { getCurrentOrgForAdmin } from '@/lib/tenant'
 import { getMercadoPagoStatus, getShippingStatus } from '@/app/admin/actions'
 import { MercadoPagoSettingsForm } from '@/components/admin/mercadopago-settings-form'
 import { ShippingSettingsForm } from '@/components/admin/shipping-settings-form'
+import { WhatsAppOrdersForm } from '@/components/admin/whatsapp-orders-form'
 
 export default async function ConfiguracionPage({
   searchParams,
@@ -20,7 +21,7 @@ export default async function ConfiguracionPage({
   const { data: storeSettings } = await supabase
     .from('store_settings')
     .select(
-      'show_prices, payment_online_enabled, shipping_enabled, free_shipping_threshold, shipping_pricing_mode, fixed_shipping_default_cost, fixed_shipping_zones'
+      'show_prices, payment_online_enabled, shipping_enabled, free_shipping_threshold, shipping_pricing_mode, fixed_shipping_default_cost, fixed_shipping_zones, whatsapp_orders_enabled, whatsapp_number'
     )
     .eq('id', ctx.storeSettingsId)
     .single()
@@ -45,6 +46,20 @@ export default async function ConfiguracionPage({
         <h1 className="mt-4 text-[24px] font-medium" style={{ color: '#111111' }}>
           Configuración
         </h1>
+      </div>
+
+      <div className="mb-8 p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
+        <h2 className="mb-1 text-[15px] font-medium" style={{ color: '#111111' }}>
+          WhatsApp
+        </h2>
+        <p className="mb-6 text-[13px]" style={{ color: '#6b6b6b' }}>
+          El cliente arma su carrito y te lo manda por WhatsApp para coordinar el pago y la
+          entrega a mano, sin pasar por Mercado Pago.
+        </p>
+        <WhatsAppOrdersForm
+          enabled={storeSettings.whatsapp_orders_enabled}
+          hasWhatsappNumber={!!storeSettings.whatsapp_number}
+        />
       </div>
 
       <div className="mb-8 p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>

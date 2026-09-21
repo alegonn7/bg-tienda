@@ -141,7 +141,7 @@ export function ProductPurchase({ product, store }: { product: Product; store: S
         Agregar al carrito
       </button>
 
-      {waItems.length > 0 && (
+      {store.whatsappOrdersEnabled && waItems.length > 0 && (
         <button
           type="button"
           onClick={handleConsultWhatsApp}

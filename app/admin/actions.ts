@@ -322,6 +322,23 @@ export async function updateStoreLogoDisplay(data: { logoHeight: number; headerD
   revalidateStorefront()
 }
 
+// Prender/apagar el pedido por WhatsApp -- mismo criterio que Mercado Pago: no toca el número
+// ni la plantilla de mensaje, solo si el botón aparece en la tienda.
+export async function updateWhatsAppOrdersEnabled(enabled: boolean) {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('store_settings')
+    .update({ whatsapp_orders_enabled: enabled })
+    .eq('id', ctx.storeSettingsId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/configuracion')
+  revalidateStorefront()
+}
+
 // Mercado Pago — conectar/desconectar la cuenta de la tienda y habilitar/deshabilitar el pago
 // online. La comisión NO la elige la tienda -- es fija de la plataforma (MP_PLATFORM_FEE_PERCENTAGE
 // en mercadopago-checkout, bg-gestion), nunca configurable acá. El estado real (conectado o no,
