@@ -1,11 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { confirmOrder, cancelOrder, refundOrder, markOrderShipped } from '@/app/admin/actions'
 import { formatPrice } from '@/lib/format'
 
 const PAGE_SIZE = 10
+
+type StatusFilter = 'all' | 'pending' | 'confirmed' | 'cancelled' | 'refunded'
+
+const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'all', label: 'Todos' },
+  { value: 'pending', label: 'Pendiente de pago' },
+  { value: 'confirmed', label: 'Confirmado' },
+  { value: 'cancelled', label: 'Cancelado' },
+  { value: 'refunded', label: 'Reembolsado' },
+]
 
 type OrderItem = {
   id: string
@@ -72,9 +82,28 @@ export function PedidosList({ orders }: { orders: Order[] }) {
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
 
-  const totalPages = Math.max(1, Math.ceil(orders.length / PAGE_SIZE))
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  function updateFilter(fn: () => void) {
+    fn()
+    setPage(1)
+  }
+
+  const filtered = useMemo(() => {
+    return orders.filter((order) => {
+      if (statusFilter !== 'all' && order.status !== statusFilter) return false
+      const createdAt = new Date(order.created_at)
+      if (dateFrom && createdAt < new Date(`${dateFrom}T00:00:00`)) return false
+      if (dateTo && createdAt > new Date(`${dateTo}T23:59:59`)) return false
+      return true
+    })
+  }, [orders, statusFilter, dateFrom, dateTo])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
-  const paged = orders.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   async function handleConfirm(id: string) {
     setBusyId(id)
@@ -127,11 +156,85 @@ export function PedidosList({ orders }: { orders: Order[] }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Filtros */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex" style={{ border: '1px solid #e5e5e5' }}>
+          {STATUS_FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => updateFilter(() => setStatusFilter(opt.value))}
+              className="px-3 py-2 text-[12px] uppercase"
+              style={{
+                letterSpacing: '0.03em',
+                backgroundColor: statusFilter === opt.value ? '#111111' : '#fff',
+                color: statusFilter === opt.value ? '#fff' : '#6b6b6b',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <div>
+          <label className="block text-[11px] uppercase" style={{ letterSpacing: '0.04em', color: '#6b6b6b' }}>
+            Desde
+          </label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => updateFilter(() => setDateFrom(e.target.value))}
+            className="mt-1 px-3 py-2 text-[13px]"
+            style={{ border: '1px solid #e5e5e5', color: '#111111', backgroundColor: '#fff' }}
+          />
+        </div>
+        <div>
+          <label className="block text-[11px] uppercase" style={{ letterSpacing: '0.04em', color: '#6b6b6b' }}>
+            Hasta
+          </label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => updateFilter(() => setDateTo(e.target.value))}
+            className="mt-1 px-3 py-2 text-[13px]"
+            style={{ border: '1px solid #e5e5e5', color: '#111111', backgroundColor: '#fff' }}
+          />
+        </div>
+
+        {(statusFilter !== 'all' || dateFrom || dateTo) && (
+          <button
+            type="button"
+            onClick={() =>
+              updateFilter(() => {
+                setStatusFilter('all')
+                setDateFrom('')
+                setDateTo('')
+              })
+            }
+            className="px-3 py-2 text-[13px]"
+            style={{ color: '#6b6b6b' }}
+          >
+            Limpiar filtros
+          </button>
+        )}
+
+        <span className="ml-auto text-[13px]" style={{ color: '#6b6b6b' }}>
+          {filtered.length} {filtered.length === 1 ? 'pedido' : 'pedidos'}
+        </span>
+      </div>
+
       {error && (
         <p className="text-[13px]" style={{ color: '#d81b8a' }}>
           {error}
         </p>
       )}
+
+      {filtered.length === 0 && (
+        <div className="py-20 text-center text-[14px]" style={{ color: '#6b6b6b' }}>
+          Ningún pedido coincide con esos filtros.
+        </div>
+      )}
+
       {paged.map((order) => {
         const badge = STATUS_BADGE[order.status] ?? { text: order.status, color: '#6b6b6b', bg: '#f0f0ee' }
         const isShipping = order.delivery_method === 'shipping'
