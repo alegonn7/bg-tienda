@@ -15,6 +15,7 @@ type PublicOrderItem = {
 
 type PublicOrder = {
   id: string
+  order_number: number
   organization_id: string
   status: 'pending' | 'confirmed' | 'cancelled' | 'refunded'
   mp_status: string | null
@@ -83,7 +84,7 @@ export default async function OrderConfirmationPage({
     <SiteShell store={store}>
       <div className="mx-auto max-w-[640px] px-6 py-16">
         <p className="text-[12px] uppercase" style={{ letterSpacing: '0.08em', color: '#6b6b6b' }}>
-          Pedido #{order.id.slice(0, 8)}
+          Pedido #{order.order_number}
         </p>
         <h1 className="mt-2 text-[24px] font-medium" style={{ color: '#111111' }}>
           {statusCopy.title}

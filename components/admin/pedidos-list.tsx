@@ -15,6 +15,7 @@ type OrderItem = {
 
 type Order = {
   id: string
+  order_number: number
   status: string
   created_at: string
   payment_method: string
@@ -117,6 +118,9 @@ export function PedidosList({ orders }: { orders: Order[] }) {
         return (
           <div key={order.id} className="p-5" style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff' }}>
             <div className="flex items-center justify-between">
+              <span className="text-[14px] font-medium" style={{ color: '#111111' }}>
+                Pedido #{order.order_number}
+              </span>
               <span
                 className="text-[12px] font-medium uppercase"
                 style={{ letterSpacing: '0.04em', color: info.color }}
