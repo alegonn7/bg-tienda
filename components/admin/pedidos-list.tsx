@@ -22,6 +22,9 @@ type Order = {
   created_at: string
   payment_method: string
   mp_status: string | null
+  subtotal: number | null
+  mp_fee_amount: number | null
+  total: number | null
   delivery_method: string | null
   shipping_carrier: string | null
   shipping_cost: number | null
@@ -163,6 +166,20 @@ export function PedidosList({ orders }: { orders: Order[] }) {
                 </li>
               ))}
             </ul>
+
+            {/* Total desglosado */}
+            <div className="mt-2 flex flex-col gap-1" style={{ paddingTop: '4px' }}>
+              {order.payment_method === 'mercadopago' && !!order.mp_fee_amount && order.mp_fee_amount > 0 && (
+                <div className="flex items-center justify-between text-[12px]" style={{ color: '#6b6b6b' }}>
+                  <span>Comisión de servicio</span>
+                  <span>{formatPrice(order.mp_fee_amount)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between text-[13px] font-medium" style={{ color: '#111111' }}>
+                <span>Total</span>
+                <span>{formatPrice(order.total)}</span>
+              </div>
+            </div>
 
             {/* Entrega */}
             <div className="mt-4 p-3 text-[13px]" style={{ backgroundColor: '#fafaf9', color: '#111111' }}>

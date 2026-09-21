@@ -52,7 +52,8 @@ export default async function ConfiguracionPage({
           Mercado Pago
         </h2>
         <p className="mb-6 text-[13px]" style={{ color: '#6b6b6b' }}>
-          Cobrá pedidos online. La plataforma cobra una comisión fija del 1%, que se descuenta de lo que recibís vos — el cliente nunca paga de más.
+          Cobrá pedidos online. La plataforma cobra una comisión fija del 1% de servicio, que se
+          le suma al cliente en el checkout (vos recibís el 100% del precio de lista).
         </p>
         <MercadoPagoSettingsForm
           connected={mpStatus.connected}

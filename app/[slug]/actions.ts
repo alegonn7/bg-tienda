@@ -174,7 +174,7 @@ export async function createMercadoPagoCheckout(
         status: 'pending',
         payment_method: 'mercadopago',
         subtotal,
-        total: subtotal, // mercadopago-checkout fija el total final (+ envío; la comisión no la paga el cliente)
+        total: subtotal, // mercadopago-checkout fija el total final (+ comisión + envío)
         customer_name: delivery.customerName || null,
         customer_phone: delivery.customerPhone || null,
         customer_email: delivery.customerEmail || null,

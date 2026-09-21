@@ -20,6 +20,7 @@ type PublicOrder = {
   status: 'pending' | 'confirmed' | 'cancelled' | 'refunded'
   mp_status: string | null
   subtotal: number | null
+  mp_fee_amount: number | null
   total: number | null
   delivery_method: 'pickup' | 'shipping' | null
   shipping_carrier: 'correo_argentino' | 'andreani' | null
@@ -146,6 +147,12 @@ export default async function OrderConfirmationPage({
         )}
 
         <div className="mt-6 flex flex-col gap-2" style={{ borderTop: '1px solid #e5e5e5', paddingTop: '1.5rem' }}>
+          {!!order.mp_fee_amount && order.mp_fee_amount > 0 && (
+            <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
+              <span>Comisión de servicio</span>
+              <span>{formatPrice(order.mp_fee_amount)}</span>
+            </div>
+          )}
           {order.delivery_method === 'shipping' && (
             <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
               <span>Envío</span>

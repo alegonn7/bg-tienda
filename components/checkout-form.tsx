@@ -17,6 +17,12 @@ const inputStyle = {
 
 const labelStyle = { letterSpacing: '0.06em', color: '#6b6b6b' } as const
 
+// Comisión fija de la plataforma, la paga el cliente (ver mercadopago-checkout en bg-gestion,
+// que es quien la cobra de verdad vía marketplace_fee -- esto acá es solo para mostrarla antes
+// de llegar a Mercado Pago). Si algún día cambia el % de MP_PLATFORM_FEE_PERCENTAGE, actualizar
+// también acá.
+const PLATFORM_FEE_PERCENTAGE = 1
+
 type DeliveryMethod = 'pickup' | 'shipping'
 type Step = 'form' | 'review'
 
@@ -49,8 +55,9 @@ export function CheckoutForm({ store }: { store: Store }) {
   const [error, setError] = useState('')
 
   const subtotal = items.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0)
+  const feeAmount = Math.round(subtotal * PLATFORM_FEE_PERCENTAGE) / 100
   const shippingCost = method === 'shipping' ? quote?.cost ?? 0 : 0
-  const total = subtotal + shippingCost
+  const total = subtotal + feeAmount + shippingCost
 
   function handleMethodChange(next: DeliveryMethod) {
     setMethod(next)
@@ -199,6 +206,12 @@ export function CheckoutForm({ store }: { store: Store }) {
               <span>Subtotal</span>
               <span>{formatPrice(subtotal)}</span>
             </div>
+            {feeAmount > 0 && (
+              <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
+                <span>Comisión de servicio ({PLATFORM_FEE_PERCENTAGE}%)</span>
+                <span>{formatPrice(feeAmount)}</span>
+              </div>
+            )}
             {method === 'shipping' && (
               <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
                 <span>Envío</span>
@@ -480,6 +493,12 @@ export function CheckoutForm({ store }: { store: Store }) {
             <span>Subtotal</span>
             <span>{formatPrice(subtotal)}</span>
           </div>
+          {feeAmount > 0 && (
+            <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
+              <span>Comisión de servicio ({PLATFORM_FEE_PERCENTAGE}%)</span>
+              <span>{formatPrice(feeAmount)}</span>
+            </div>
+          )}
           {method === 'shipping' && quote && (
             <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
               <span>Envío</span>
