@@ -215,4 +215,19 @@
     @apply font-sans;
     background-color: var(--color-bg);
   }
+
+  /* Los navegadores no le ponen cursor:pointer a <button> por defecto (a diferencia de <a>) --
+     sin esto, cualquier botón que no use la clase .pc-btn (la mayoría del admin y el checkout)
+     mostraba la flecha normal en vez de la manito al pasar el mouse. */
+  button:not(:disabled),
+  [role='button'],
+  a,
+  select,
+  input[type='checkbox'],
+  input[type='radio'] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
 }
