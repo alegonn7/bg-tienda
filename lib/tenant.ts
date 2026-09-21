@@ -22,6 +22,10 @@ export type Store = {
   mercadopagoAvailable: boolean
   shippingEnabled: boolean
   shippingCarrier: string | null
+  transferEnabled: boolean
+  transferCbu: string | null
+  transferAlias: string | null
+  transferReceiptEmail: string | null
   heroTitle: string | null
   heroSubtitle: string | null
   features: { title: string; text: string; icon?: string }[]
@@ -60,6 +64,10 @@ export const getStoreBySlug = cache(async (slug: string): Promise<Store | null> 
     mercadopagoAvailable: data.mercadopago_available ?? false,
     shippingEnabled: data.shipping_enabled ?? false,
     shippingCarrier: data.shipping_carrier ?? null,
+    transferEnabled: data.transfer_enabled ?? false,
+    transferCbu: data.transfer_cbu ?? null,
+    transferAlias: data.transfer_alias ?? null,
+    transferReceiptEmail: data.transfer_receipt_email ?? null,
     heroTitle: data.hero_title,
     heroSubtitle: data.hero_subtitle,
     features: Array.isArray(data.features) ? data.features : [],

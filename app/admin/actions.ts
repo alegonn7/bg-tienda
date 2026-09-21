@@ -185,12 +185,14 @@ export async function deleteHeroImage(id: string) {
 }
 
 // Pedidos
+// Confirma a mano un pedido pending (WhatsApp o transferencia). Pasa por la Edge Function
+// confirm-store-order en vez de llamar el RPC directo -- necesita mandar el email de "pago
+// confirmado" al cliente si dejó su email, y eso requiere el secret de SMTP que ecomerse no
+// tiene. invokeMercadoPagoFunction es solo el wrapper genérico de supabase.functions.invoke, no
+// algo específico de Mercado Pago -- mismo que usa shipping-setup vía invokeShippingFunction.
 export async function confirmOrder(orderId: string) {
   const supabase = await createClient()
-  // confirm_store_order ya valida adentro que el pedido sea de la organización del usuario
-  // logueado (deriva todo de auth.uid(), ver Fase 01) — no hace falta repetir ese chequeo acá.
-  const { error } = await supabase.rpc('confirm_store_order', { p_store_order_id: orderId })
-  if (error) throw new Error(error.message)
+  await invokeMercadoPagoFunction(supabase, 'confirm-store-order', { storeOrderId: orderId })
   revalidatePath('/admin/pedidos')
   revalidateStorefront()
 }
@@ -332,6 +334,34 @@ export async function updateWhatsAppOrdersEnabled(enabled: boolean) {
   const { error } = await supabase
     .from('store_settings')
     .update({ whatsapp_orders_enabled: enabled })
+    .eq('id', ctx.storeSettingsId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/configuracion')
+  revalidateStorefront()
+}
+
+// Transferencia bancaria — CBU/alias/email de comprobante no son secretos (se publican a
+// propósito para que el cliente pague), .update() directo sin Edge Function, mismo criterio que
+// el resto de esta config.
+export async function updateTransferSettings(data: {
+  enabled: boolean
+  cbu: string
+  alias: string
+  receiptEmail: string
+}) {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('store_settings')
+    .update({
+      transfer_enabled: data.enabled,
+      transfer_cbu: data.cbu || null,
+      transfer_alias: data.alias || null,
+      transfer_receipt_email: data.receiptEmail || null,
+    })
     .eq('id', ctx.storeSettingsId)
 
   if (error) throw new Error(error.message)

@@ -100,6 +100,124 @@ export async function quoteShipping(
   })
 }
 
+// Arma y persiste un pedido "pending" con precio real (Mercado Pago y transferencia comparten
+// esto -- el único punto donde diverge es qué pasa DESPUÉS de crear el pedido: uno pide un
+// checkoutUrl de Mercado Pago, el otro no llama a ningún lado, solo muestra CBU/alias). Nunca
+// falla en silencio: no hay canal de respaldo tipo WhatsApp si esto no funciona.
+async function buildOnlineOrder(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  branchId: string,
+  items: { productId: string; size?: string; quantity: number }[],
+  delivery: Delivery,
+  paymentMethod: 'mercadopago' | 'transfer',
+): Promise<{ orderId: string; subtotal: number }> {
+  const productIds = [...new Set(items.map((i) => i.productId))]
+  const { data: catalogRows, error: catalogError } = await supabase
+    .from('store_catalog')
+    .select('product_id, name, price_sale')
+    .eq('branch_id', branchId)
+    .in('product_id', productIds)
+
+  if (catalogError) throw new Error(catalogError.message)
+
+  const priceByProduct = new Map((catalogRows ?? []).map((row) => [row.product_id, row]))
+
+  const orderItems = items.map((item) => {
+    const row = priceByProduct.get(item.productId)
+    if (!row || row.price_sale == null) {
+      throw new Error(`"${row?.name ?? 'Un producto'}" ya no está disponible para pagar online.`)
+    }
+    return {
+      product_id: item.productId,
+      product_name: row.name as string,
+      size: item.size || null,
+      quantity: item.quantity,
+      unit_price: row.price_sale as number,
+      subtotal: (row.price_sale as number) * item.quantity,
+    }
+  })
+
+  const subtotal = orderItems.reduce((sum, i) => sum + i.subtotal, 0)
+
+  // Recotización autoritativa server-to-server: nunca se confía en el costo que ya se mostró
+  // en el navegador durante el preview (quoteShipping).
+  let shippingCost = 0
+  let shippingOriginalCost: number | null = null
+  let shippingCarrier: string | null = null
+  if (delivery.method === 'shipping' && delivery.address) {
+    const { data: settings } = await supabase
+      .from('store_settings')
+      .select('shipping_carrier')
+      .eq('organization_id', organizationId)
+      .single()
+    shippingCarrier = settings?.shipping_carrier ?? null
+
+    const result = await invokeShippingFunction<{ cost: number; originalCost: number }>(supabase, 'shipping-quote', {
+      organizationId,
+      destinationPostalCode: delivery.address.postalCode,
+      destinationProvince: delivery.address.province,
+      items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+    })
+    shippingCost = result.cost
+    // Solo se guarda cuando hay descuento real -- así el resto del código (pantalla de
+    // pedido, admin, emails) puede usar "shipping_original_cost != null" como el único chequeo
+    // de "¿este envío se lo bonificamos?", sin tener que comparar números en cada lugar.
+    shippingOriginalCost = result.originalCost > result.cost ? result.originalCost : null
+  }
+
+  // Mismo motivo en los dos métodos: generar el id acá evita el .select() con RETURNING que un
+  // cliente anónimo real no tiene permiso de hacer (sin SELECT público en store_orders) -- esa
+  // fue la causa real del bug reportado en mobile.
+  const orderId = crypto.randomUUID()
+  // La comisión de plataforma (1%) solo aplica a Mercado Pago -- transferencia no tiene forma
+  // de cobrarla (la plata va directo banco a banco, no pasamos por ningún lado).
+  const total = paymentMethod === 'transfer' ? subtotal + shippingCost : subtotal
+  const { error: orderError } = await supabase
+    .from('store_orders')
+    .insert({
+      id: orderId,
+      organization_id: organizationId,
+      branch_id: branchId,
+      status: 'pending',
+      payment_method: paymentMethod,
+      subtotal,
+      total, // mercadopago-checkout recalcula esto para MP (+ comisión + envío)
+      customer_name: delivery.customerName || null,
+      customer_phone: delivery.customerPhone || null,
+      customer_email: delivery.customerEmail || null,
+      customer_note: delivery.customerNote || null,
+      delivery_method: delivery.method,
+      shipping_carrier: shippingCarrier,
+      // A diferencia de "|| null": 0 es un costo de envío legítimo (envío gratis por monto
+      // mínimo), no debe perderse como null -- null acá significa "no es un pedido con envío".
+      shipping_cost: delivery.method === 'shipping' ? shippingCost : null,
+      shipping_original_cost: shippingOriginalCost,
+      shipping_street: delivery.address?.street || null,
+      shipping_number: delivery.address?.number || null,
+      shipping_floor_apartment: delivery.address?.floorApartment || null,
+      shipping_city: delivery.address?.city || null,
+      shipping_province: delivery.address?.province || null,
+      shipping_postal_code: delivery.address?.postalCode || null,
+    })
+
+  if (orderError) {
+    console.error('buildOnlineOrder: insert store_orders falló', orderError.code, orderError.message, orderError.details, orderError.hint)
+    throw new Error('No se pudo crear el pedido. Intentá de nuevo.')
+  }
+
+  const { error: itemsError } = await supabase
+    .from('store_order_items')
+    .insert(orderItems.map((item) => ({ ...item, store_order_id: orderId })))
+
+  if (itemsError) {
+    console.error('buildOnlineOrder: insert store_order_items falló', itemsError.code, itemsError.message, itemsError.details, itemsError.hint)
+    throw new Error('No se pudo crear el pedido. Intentá de nuevo.')
+  }
+
+  return { orderId, subtotal }
+}
+
 export async function createMercadoPagoCheckout(
   organizationId: string,
   branchId: string,
@@ -112,112 +230,12 @@ export async function createMercadoPagoCheckout(
     throw new Error('Falta la dirección de envío.')
   }
 
-  // Todo lo que sigue toca servicios externos (Supabase, shipping-quote, mercadopago-checkout) --
-  // a diferencia de las validaciones de arriba, una falla acá no siempre es un Error prolijo
+  // A diferencia de las validaciones de arriba, una falla acá no siempre es un Error prolijo
   // (ver createPendingOrder para el mismo patrón). Sin este try/catch, una excepción rara se
   // propaga muda hasta el mensaje genérico de Next.js sin dejar rastro en los logs de Vercel.
   try {
     const supabase = await createClient()
-
-    const productIds = [...new Set(items.map((i) => i.productId))]
-    const { data: catalogRows, error: catalogError } = await supabase
-      .from('store_catalog')
-      .select('product_id, name, price_sale')
-      .eq('branch_id', branchId)
-      .in('product_id', productIds)
-
-    if (catalogError) throw new Error(catalogError.message)
-
-    const priceByProduct = new Map((catalogRows ?? []).map((row) => [row.product_id, row]))
-
-    const orderItems = items.map((item) => {
-      const row = priceByProduct.get(item.productId)
-      if (!row || row.price_sale == null) {
-        throw new Error(`"${row?.name ?? 'Un producto'}" ya no está disponible para pagar online.`)
-      }
-      return {
-        product_id: item.productId,
-        product_name: row.name as string,
-        size: item.size || null,
-        quantity: item.quantity,
-        unit_price: row.price_sale as number,
-        subtotal: (row.price_sale as number) * item.quantity,
-      }
-    })
-
-    const subtotal = orderItems.reduce((sum, i) => sum + i.subtotal, 0)
-
-    // Recotización autoritativa server-to-server: nunca se confía en el costo que ya se mostró
-    // en el navegador durante el preview (quoteShipping).
-    let shippingCost = 0
-    let shippingOriginalCost: number | null = null
-    let shippingCarrier: string | null = null
-    if (delivery.method === 'shipping' && delivery.address) {
-      const { data: settings } = await supabase
-        .from('store_settings')
-        .select('shipping_carrier')
-        .eq('organization_id', organizationId)
-        .single()
-      shippingCarrier = settings?.shipping_carrier ?? null
-
-      const result = await invokeShippingFunction<{ cost: number; originalCost: number }>(supabase, 'shipping-quote', {
-        organizationId,
-        destinationPostalCode: delivery.address.postalCode,
-        destinationProvince: delivery.address.province,
-        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
-      })
-      shippingCost = result.cost
-      // Solo se guarda cuando hay descuento real -- así el resto del código (pantalla de
-      // pedido, admin, emails) puede usar "shipping_original_cost != null" como el único chequeo
-      // de "¿este envío se lo bonificamos?", sin tener que comparar números en cada lugar.
-      shippingOriginalCost = result.originalCost > result.cost ? result.originalCost : null
-    }
-
-    // Mismo motivo que en createPendingOrder: generar el id acá evita el .select() con
-    // RETURNING que un cliente anónimo real no tiene permiso de hacer (sin SELECT público en
-    // store_orders) -- esa es la causa real del bug reportado en mobile.
-    const orderId = crypto.randomUUID()
-    const { error: orderError } = await supabase
-      .from('store_orders')
-      .insert({
-        id: orderId,
-        organization_id: organizationId,
-        branch_id: branchId,
-        status: 'pending',
-        payment_method: 'mercadopago',
-        subtotal,
-        total: subtotal, // mercadopago-checkout fija el total final (+ comisión + envío)
-        customer_name: delivery.customerName || null,
-        customer_phone: delivery.customerPhone || null,
-        customer_email: delivery.customerEmail || null,
-        customer_note: delivery.customerNote || null,
-        delivery_method: delivery.method,
-        shipping_carrier: shippingCarrier,
-        // A diferencia de "|| null": 0 es un costo de envío legítimo (envío gratis por monto
-        // mínimo), no debe perderse como null -- null acá significa "no es un pedido con envío".
-        shipping_cost: delivery.method === 'shipping' ? shippingCost : null,
-        shipping_original_cost: shippingOriginalCost,
-        shipping_street: delivery.address?.street || null,
-        shipping_number: delivery.address?.number || null,
-        shipping_floor_apartment: delivery.address?.floorApartment || null,
-        shipping_city: delivery.address?.city || null,
-        shipping_province: delivery.address?.province || null,
-        shipping_postal_code: delivery.address?.postalCode || null,
-      })
-
-    if (orderError) {
-      console.error('createMercadoPagoCheckout: insert store_orders falló', orderError.code, orderError.message, orderError.details, orderError.hint)
-      throw new Error('No se pudo crear el pedido. Intentá de nuevo.')
-    }
-
-    const { error: itemsError } = await supabase
-      .from('store_order_items')
-      .insert(orderItems.map((item) => ({ ...item, store_order_id: orderId })))
-
-    if (itemsError) {
-      console.error('createMercadoPagoCheckout: insert store_order_items falló', itemsError.code, itemsError.message, itemsError.details, itemsError.hint)
-      throw new Error('No se pudo crear el pedido. Intentá de nuevo.')
-    }
+    const { orderId } = await buildOnlineOrder(supabase, organizationId, branchId, items, delivery, 'mercadopago')
 
     return await invokeMercadoPagoFunction<{ checkoutUrl: string }>(supabase, 'mercadopago-checkout', {
       storeOrderId: orderId,
@@ -225,6 +243,31 @@ export async function createMercadoPagoCheckout(
     })
   } catch (err) {
     console.error('createMercadoPagoCheckout:', err instanceof Error ? err.message : err)
+    throw err
+  }
+}
+
+// Pedido a pagar por transferencia: se crea igual que el de Mercado Pago (mismo precio real
+// server-side, misma recotización de envío) pero sin ningún checkout externo -- el pedido queda
+// "pending" y el frontend redirige a /[slug]/pedido/[orderId], que muestra CBU/alias e
+// instrucciones mientras espera que el dueño confirme el pago a mano.
+export async function createTransferOrder(
+  organizationId: string,
+  branchId: string,
+  items: { productId: string; size?: string; quantity: number }[],
+  delivery: Delivery,
+): Promise<{ orderId: string }> {
+  if (items.length === 0) throw new Error('El carrito está vacío.')
+  if (delivery.method === 'shipping' && !delivery.address?.postalCode) {
+    throw new Error('Falta la dirección de envío.')
+  }
+
+  try {
+    const supabase = await createClient()
+    const { orderId } = await buildOnlineOrder(supabase, organizationId, branchId, items, delivery, 'transfer')
+    return { orderId }
+  } catch (err) {
+    console.error('createTransferOrder:', err instanceof Error ? err.message : err)
     throw err
   }
 }

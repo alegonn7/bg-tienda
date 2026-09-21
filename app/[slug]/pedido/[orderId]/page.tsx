@@ -18,6 +18,7 @@ type PublicOrder = {
   order_number: number
   organization_id: string
   status: 'pending' | 'confirmed' | 'cancelled' | 'refunded'
+  payment_method: 'whatsapp' | 'mercadopago' | 'transfer'
   mp_status: string | null
   subtotal: number | null
   mp_fee_amount: number | null
@@ -87,7 +88,14 @@ export default async function OrderConfirmationPage({
   const order = data as PublicOrder | null
   if (!order || order.organization_id !== store.organizationId) notFound()
 
-  const statusCopy = STATUS_COPY[order.status]
+  const isPendingTransfer = order.status === 'pending' && order.payment_method === 'transfer'
+  const statusCopy = isPendingTransfer
+    ? {
+        title: 'Registramos tu pedido',
+        text: 'Hacé la transferencia y mandanos el comprobante — en cuanto lo confirmemos, te llega un email.',
+        color: '#6b6b6b',
+      }
+    : STATUS_COPY[order.status]
   const hasAddress = order.delivery_method === 'shipping' && !!order.shipping_street
 
   return (
@@ -121,6 +129,30 @@ export default async function OrderConfirmationPage({
             </div>
           ))}
         </div>
+
+        {isPendingTransfer && (
+          <div className="mt-6 p-4 text-[13px]" style={{ backgroundColor: '#f5f5f3', color: '#111111' }}>
+            <p className="mb-2 text-[12px] uppercase" style={{ letterSpacing: '0.06em', color: '#6b6b6b' }}>
+              Datos para transferir
+            </p>
+            {store.transferCbu && (
+              <p>
+                <strong>CBU:</strong> {store.transferCbu}
+              </p>
+            )}
+            {store.transferAlias && (
+              <p>
+                <strong>Alias:</strong> {store.transferAlias}
+              </p>
+            )}
+            {store.transferReceiptEmail && (
+              <p className="mt-2">
+                Mandá el comprobante a <strong>{store.transferReceiptEmail}</strong> mencionando el
+                pedido #{order.order_number}.
+              </p>
+            )}
+          </div>
+        )}
 
         {hasAddress && (
           <div className="mt-6 text-[13px]" style={{ color: '#6b6b6b' }}>

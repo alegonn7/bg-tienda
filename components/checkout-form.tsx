@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCart } from '@/components/cart-context'
 import { productImage } from '@/lib/products'
 import { formatPrice } from '@/lib/format'
 import type { Store } from '@/lib/tenant'
-import { createMercadoPagoCheckout, quoteShipping } from '@/app/[slug]/actions'
+import { createMercadoPagoCheckout, createTransferOrder, quoteShipping } from '@/app/[slug]/actions'
 import { ARGENTINA_PROVINCES } from '@/lib/argentina-provinces'
 
 const inputStyle = {
@@ -24,13 +25,18 @@ const labelStyle = { letterSpacing: '0.06em', color: '#6b6b6b' } as const
 const PLATFORM_FEE_PERCENTAGE = 1
 
 type DeliveryMethod = 'pickup' | 'shipping'
+type PaymentMethod = 'mercadopago' | 'transfer'
 type Step = 'form' | 'review'
 
 export function CheckoutForm({ store }: { store: Store }) {
+  const router = useRouter()
   const { items } = useCart()
 
   const [step, setStep] = useState<Step>('form')
 
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    store.mercadopagoAvailable ? 'mercadopago' : 'transfer',
+  )
   const [method, setMethod] = useState<DeliveryMethod>('pickup')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
@@ -55,7 +61,9 @@ export function CheckoutForm({ store }: { store: Store }) {
   const [error, setError] = useState('')
 
   const subtotal = items.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0)
-  const feeAmount = Math.round(subtotal * PLATFORM_FEE_PERCENTAGE) / 100
+  // La comisión de plataforma solo existe para Mercado Pago -- transferencia no tiene forma de
+  // cobrarla, la plata va directo banco a banco.
+  const feeAmount = paymentMethod === 'mercadopago' ? Math.round(subtotal * PLATFORM_FEE_PERCENTAGE) / 100 : 0
   const shippingCost = method === 'shipping' ? quote?.cost ?? 0 : 0
   const total = subtotal + feeAmount + shippingCost
 
@@ -125,6 +133,39 @@ export function CheckoutForm({ store }: { store: Store }) {
       window.location.href = checkoutUrl
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo iniciar el pago')
+      setPaying(false)
+    }
+  }
+
+  // A diferencia de Mercado Pago, acá no hay ningún checkout externo -- el pedido queda
+  // "pending" esperando que el dueño confirme el pago a mano al recibir el comprobante.
+  async function handleConfirmTransfer() {
+    setPaying(true)
+    setError('')
+    try {
+      if (method === 'shipping' && !quote) {
+        throw new Error('Calculá el costo de envío antes de confirmar.')
+      }
+
+      const { orderId } = await createTransferOrder(
+        store.organizationId,
+        store.branchId,
+        items.map((item) => ({ productId: item.product.id, size: item.size, quantity: item.quantity })),
+        {
+          method,
+          customerName,
+          customerPhone,
+          customerEmail,
+          customerNote: customerNote || undefined,
+          address:
+            method === 'shipping'
+              ? { street, number, floorApartment: floorApartment || undefined, city, province, postalCode }
+              : undefined,
+        },
+      )
+      router.push(`/${store.slug}/pedido/${orderId}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo crear el pedido')
       setPaying(false)
     }
   }
@@ -238,20 +279,41 @@ export function CheckoutForm({ store }: { store: Store }) {
           </div>
         )}
 
+        {paymentMethod === 'transfer' && (
+          <div className="p-4 text-[13px]" style={{ backgroundColor: '#f5f5f3', color: '#111111' }}>
+            <p className="font-medium">Pagás por transferencia</p>
+            <p className="mt-2" style={{ color: '#6b6b6b' }}>
+              Al confirmar te mostramos el CBU/alias y a qué email mandar el comprobante. El
+              pedido queda a la espera de que confirmemos que nos llegó el pago.
+            </p>
+          </div>
+        )}
+
         {error && (
           <p className="text-[13px]" style={{ color: '#d81b8a' }}>
             {error}
           </p>
         )}
 
-        <button
-          type="button"
-          onClick={handlePay}
-          disabled={paying}
-          className="pc-btn w-full px-4 py-3 text-[14px] disabled:opacity-60"
-        >
-          {paying ? 'Redirigiendo a Mercado Pago...' : 'Pagar con Mercado Pago →'}
-        </button>
+        {paymentMethod === 'transfer' ? (
+          <button
+            type="button"
+            onClick={handleConfirmTransfer}
+            disabled={paying}
+            className="pc-btn w-full px-4 py-3 text-[14px] disabled:opacity-60"
+          >
+            {paying ? 'Confirmando...' : 'Confirmar pedido →'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handlePay}
+            disabled={paying}
+            className="pc-btn w-full px-4 py-3 text-[14px] disabled:opacity-60"
+          >
+            {paying ? 'Redirigiendo a Mercado Pago...' : 'Pagar con Mercado Pago →'}
+          </button>
+        )}
       </div>
     )
   }
@@ -336,6 +398,41 @@ export function CheckoutForm({ store }: { store: Store }) {
           </p>
         </div>
       </div>
+
+      {/* Método de pago */}
+      {store.mercadopagoAvailable && store.transferEnabled && (
+        <div>
+          <label className="block text-[12px] uppercase" style={labelStyle}>
+            Cómo pagás
+          </label>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPaymentMethod('mercadopago')}
+              className="px-4 py-2 text-[13px]"
+              style={{
+                border: `1px solid ${paymentMethod === 'mercadopago' ? '#111111' : '#e5e5e5'}`,
+                backgroundColor: paymentMethod === 'mercadopago' ? '#111111' : '#fff',
+                color: paymentMethod === 'mercadopago' ? '#fff' : '#6b6b6b',
+              }}
+            >
+              Mercado Pago
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMethod('transfer')}
+              className="px-4 py-2 text-[13px]"
+              style={{
+                border: `1px solid ${paymentMethod === 'transfer' ? '#111111' : '#e5e5e5'}`,
+                backgroundColor: paymentMethod === 'transfer' ? '#111111' : '#fff',
+                color: paymentMethod === 'transfer' ? '#fff' : '#6b6b6b',
+              }}
+            >
+              Transferencia
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Método de entrega */}
       <div>

@@ -50,6 +50,7 @@ type Order = {
   shipped_at: string | null
   customer_name: string | null
   customer_phone: string | null
+  customer_email: string | null
   customer_note: string | null
   store_order_items: OrderItem[]
 }
@@ -337,7 +338,7 @@ export function PedidosList({ orders }: { orders: Order[] }) {
             </div>
 
             {/* Contacto / nota */}
-            {(order.customer_name || order.customer_note) && (
+            {(order.customer_name || order.customer_email || order.customer_note) && (
               <div className="mt-3 text-[13px]" style={{ color: '#111111' }}>
                 {order.customer_name && (
                   <p>
@@ -345,6 +346,7 @@ export function PedidosList({ orders }: { orders: Order[] }) {
                     {order.customer_phone ? ` — ${order.customer_phone}` : ''}
                   </p>
                 )}
+                {order.customer_email && <p style={{ color: '#6b6b6b' }}>{order.customer_email}</p>}
                 {order.customer_note && <p style={{ color: '#6b6b6b' }}>Nota: {order.customer_note}</p>}
               </div>
             )}
@@ -352,6 +354,12 @@ export function PedidosList({ orders }: { orders: Order[] }) {
             {order.payment_method === 'mercadopago' && order.status === 'pending' && order.mp_status === 'approved' && (
               <p className="mt-3 p-3 text-[12px] font-medium" style={{ color: '#dc2626', backgroundColor: '#fdecec' }}>
                 Pagado — sin stock, revisar
+              </p>
+            )}
+
+            {order.payment_method === 'transfer' && order.status === 'pending' && (
+              <p className="mt-3 p-3 text-[12px]" style={{ color: '#b45309', backgroundColor: '#fef3e2' }}>
+                Esperando comprobante de transferencia — revisá el email donde configuraste recibirlos.
               </p>
             )}
 
@@ -380,7 +388,11 @@ export function PedidosList({ orders }: { orders: Order[] }) {
                   disabled={busyId === order.id}
                   className="pc-btn px-4 py-2 text-[13px] disabled:opacity-60"
                 >
-                  {busyId === order.id ? 'Confirmando...' : 'Marcar como vendido →'}
+                  {busyId === order.id
+                    ? 'Confirmando...'
+                    : order.payment_method === 'transfer'
+                      ? 'Confirmar pago →'
+                      : 'Marcar como vendido →'}
                 </button>
                 <button
                   type="button"

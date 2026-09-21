@@ -6,6 +6,7 @@ import { getMercadoPagoStatus, getShippingStatus } from '@/app/admin/actions'
 import { MercadoPagoSettingsForm } from '@/components/admin/mercadopago-settings-form'
 import { ShippingSettingsForm } from '@/components/admin/shipping-settings-form'
 import { WhatsAppOrdersForm } from '@/components/admin/whatsapp-orders-form'
+import { TransferSettingsForm } from '@/components/admin/transfer-settings-form'
 
 export default async function ConfiguracionPage({
   searchParams,
@@ -21,7 +22,7 @@ export default async function ConfiguracionPage({
   const { data: storeSettings } = await supabase
     .from('store_settings')
     .select(
-      'show_prices, payment_online_enabled, shipping_enabled, free_shipping_threshold, shipping_pricing_mode, fixed_shipping_default_cost, fixed_shipping_zones, whatsapp_orders_enabled, whatsapp_number'
+      'show_prices, payment_online_enabled, shipping_enabled, free_shipping_threshold, shipping_pricing_mode, fixed_shipping_default_cost, fixed_shipping_zones, whatsapp_orders_enabled, whatsapp_number, transfer_enabled, transfer_cbu, transfer_alias, transfer_receipt_email'
     )
     .eq('id', ctx.storeSettingsId)
     .single()
@@ -78,6 +79,22 @@ export default async function ConfiguracionPage({
           enabled={storeSettings.payment_online_enabled}
           mpConnected={mp_connected === '1'}
           mpError={mp_error}
+        />
+      </div>
+
+      <div className="mb-8 p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
+        <h2 className="mb-1 text-[15px] font-medium" style={{ color: '#111111' }}>
+          Transferencia bancaria
+        </h2>
+        <p className="mb-6 text-[13px]" style={{ color: '#6b6b6b' }}>
+          El cliente ve tu CBU/alias, transfiere por su cuenta y te manda el comprobante. Vos
+          confirmás el pago a mano desde Pedidos cuando te llegue la plata.
+        </p>
+        <TransferSettingsForm
+          enabled={storeSettings.transfer_enabled}
+          cbu={storeSettings.transfer_cbu}
+          alias={storeSettings.transfer_alias}
+          receiptEmail={storeSettings.transfer_receipt_email}
         />
       </div>
 

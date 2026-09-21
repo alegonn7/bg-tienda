@@ -32,12 +32,13 @@ export function CartDrawer({ store }: { store: Store }) {
     setSending(false)
   }
 
-  // Si la tienda activó envío calculado, hace falta pedir dirección — eso vive en su propia
-  // página (/[slug]/checkout), no en este drawer angosto. Si NO lo activó, el botón sigue
-  // funcionando exactamente igual que antes de que existiera el módulo de envíos: pago directo
-  // sin pedir nada más, sin ningún cambio de comportamiento para esas tiendas.
-  function handleMercadoPagoCheckout() {
-    if (store.shippingEnabled) {
+  // Si la tienda activó envío calculado, o si hay más de un método de pago para elegir (Mercado
+  // Pago y/o transferencia), hace falta la página completa (/[slug]/checkout) -- ahí se pide
+  // dirección y/o se elige método. Si la tienda solo tiene Mercado Pago sin envío, el botón
+  // sigue funcionando exactamente igual que antes de que existieran estos features: pago
+  // directo sin pedir nada más.
+  function handlePayClick() {
+    if (store.shippingEnabled || store.transferEnabled) {
       router.push(`/${store.slug}/checkout`)
       return
     }
@@ -157,11 +158,11 @@ export function CartDrawer({ store }: { store: Store }) {
                 </p>
               </>
             )}
-            {store.mercadopagoAvailable && (
+            {(store.mercadopagoAvailable || store.transferEnabled) && (
               <>
-                {/* Solo acá: si la tienda tiene envío activado, handleMercadoPagoCheckout manda
-                    a /checkout, que ya tiene su propio campo de email en el formulario completo. */}
-                {!store.shippingEnabled && (
+                {/* Solo acá: si hace falta la página completa (envío y/o elegir método), esta
+                    manda a /checkout, que ya tiene su propio campo de email en el formulario. */}
+                {!store.shippingEnabled && !store.transferEnabled && (
                   <input
                     type="email"
                     value={mpEmail}
@@ -174,12 +175,16 @@ export function CartDrawer({ store }: { store: Store }) {
                 )}
                 <button
                   type="button"
-                  onClick={handleMercadoPagoCheckout}
-                  disabled={mpSending || (!store.shippingEnabled && !mpEmail)}
+                  onClick={handlePayClick}
+                  disabled={mpSending || (!store.shippingEnabled && !store.transferEnabled && !mpEmail)}
                   className="mt-3 w-full px-4 py-3 text-[14px] disabled:opacity-60"
                   style={{ border: '1px solid #111111', color: '#111111', backgroundColor: '#fff' }}
                 >
-                  {mpSending ? 'Redirigiendo a Mercado Pago...' : 'Pagar con Mercado Pago →'}
+                  {mpSending
+                    ? 'Redirigiendo a Mercado Pago...'
+                    : store.shippingEnabled || store.transferEnabled
+                      ? 'Pagar online →'
+                      : 'Pagar con Mercado Pago →'}
                 </button>
                 {mpError && (
                   <p className="mt-2 text-[12px]" style={{ color: '#d81b8a' }}>
