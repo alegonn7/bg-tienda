@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateMercadoPagoSettings, disconnectMercadoPago } from '@/app/admin/actions'
+import { ConfirmDialog } from '@/components/admin/confirm-dialog'
 
 type Props = {
   connected: boolean
@@ -27,6 +28,7 @@ export function MercadoPagoSettingsForm({
   const [paymentEnabled, setPaymentEnabled] = useState(enabled)
   const [saving, setSaving] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
 
@@ -47,7 +49,7 @@ export function MercadoPagoSettingsForm({
   }
 
   async function handleDisconnect() {
-    if (!confirm('¿Desconectar Mercado Pago? La tienda deja de poder cobrar pagos online hasta que se vuelva a conectar.')) return
+    setConfirmingDisconnect(false)
     setDisconnecting(true)
     setError('')
     try {
@@ -62,6 +64,15 @@ export function MercadoPagoSettingsForm({
 
   return (
     <div className="flex flex-col gap-4">
+      <ConfirmDialog
+        open={confirmingDisconnect}
+        title="Desconectar Mercado Pago"
+        message="¿Desconectar Mercado Pago? La tienda deja de poder cobrar pagos online hasta que se vuelva a conectar."
+        confirmText="Desconectar"
+        danger
+        onConfirm={handleDisconnect}
+        onCancel={() => setConfirmingDisconnect(false)}
+      />
       {mpConnected && (
         <p className="text-[13px]" style={{ color: '#16a34a' }}>
           Conectado correctamente.
@@ -126,7 +137,7 @@ export function MercadoPagoSettingsForm({
             </button>
             <button
               type="button"
-              onClick={handleDisconnect}
+              onClick={() => setConfirmingDisconnect(true)}
               disabled={disconnecting}
               className="text-[13px] disabled:opacity-60"
               style={{ color: '#6b6b6b' }}

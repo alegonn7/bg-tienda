@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ConfirmDialog } from '@/components/admin/confirm-dialog'
 
 const PAGE_SIZE = 20
 
@@ -19,6 +20,7 @@ export function ManageList({ items, onAdd, onDelete, placeholder }: Props) {
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
+  const [deleting, setDeleting] = useState<Item | null>(null)
   const router = useRouter()
 
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
@@ -41,8 +43,8 @@ export function ManageList({ items, onAdd, onDelete, placeholder }: Props) {
     }
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`¿Eliminar "${name}"?`)) return
+  async function handleDelete(id: string) {
+    setDeleting(null)
     try {
       await onDelete(id)
       router.refresh()
@@ -53,6 +55,15 @@ export function ManageList({ items, onAdd, onDelete, placeholder }: Props) {
 
   return (
     <div>
+      <ConfirmDialog
+        open={!!deleting}
+        title="Eliminar"
+        message={deleting ? `¿Eliminar "${deleting.name}"?` : ''}
+        confirmText="Eliminar"
+        danger
+        onConfirm={() => deleting && handleDelete(deleting.id)}
+        onCancel={() => setDeleting(null)}
+      />
       <form onSubmit={handleAdd} className="flex gap-3">
         <input
           type="text"
@@ -96,7 +107,7 @@ export function ManageList({ items, onAdd, onDelete, placeholder }: Props) {
               </span>
               <button
                 type="button"
-                onClick={() => handleDelete(item.id, item.name)}
+                onClick={() => setDeleting(item)}
                 className="text-[13px]"
                 style={{ color: '#d81b8a' }}
               >

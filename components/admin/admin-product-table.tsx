@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { Product } from '@/lib/products'
 import { productImage } from '@/lib/products'
 import { formatPrice } from '@/lib/format'
+import { ConfirmDialog } from '@/components/admin/confirm-dialog'
 import {
   removeProductFromStore,
   restoreProductToStore,
@@ -26,6 +27,7 @@ export function AdminProductTable({ products }: { products: Product[] }) {
   const [status, setStatus] = useState<StatusFilter>('all')
   const [sort, setSort] = useState<SortKey>('default')
   const [page, setPage] = useState(1)
+  const [removing, setRemoving] = useState<{ productBranchId: string; name: string } | null>(null)
 
   const categories = useMemo(() => {
     const names = new Set(products.map((p) => p.category).filter(Boolean))
@@ -67,9 +69,15 @@ export function AdminProductTable({ products }: { products: Product[] }) {
     setPage(1)
   }
 
-  async function handleRemove(productBranchId: string | undefined, name: string) {
+  function handleRemoveClick(productBranchId: string | undefined, name: string) {
     if (!productBranchId) return
-    if (!confirm(`¿Sacar "${name}" de la tienda online? El producto sigue existiendo en bg-gestion, y podés volver a mostrarlo cuando quieras.`)) return
+    setRemoving({ productBranchId, name })
+  }
+
+  async function handleRemoveConfirmed() {
+    if (!removing) return
+    const { productBranchId } = removing
+    setRemoving(null)
     await removeProductFromStore(productBranchId)
     router.refresh()
   }
@@ -103,6 +111,20 @@ export function AdminProductTable({ products }: { products: Product[] }) {
 
   return (
     <div>
+      <ConfirmDialog
+        open={!!removing}
+        title="Sacar de la tienda"
+        message={
+          removing
+            ? `¿Sacar "${removing.name}" de la tienda online? El producto sigue existiendo en bg-gestion, y podés volver a mostrarlo cuando quieras.`
+            : ''
+        }
+        confirmText="Sacar"
+        danger
+        onConfirm={handleRemoveConfirmed}
+        onCancel={() => setRemoving(null)}
+      />
+
       {/* Barra de filtros */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input
@@ -281,7 +303,7 @@ export function AdminProductTable({ products }: { products: Product[] }) {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => handleRemove(product.productBranchId, product.name)}
+                          onClick={() => handleRemoveClick(product.productBranchId, product.name)}
                           className="text-[13px]"
                           style={{ color: '#d81b8a' }}
                         >

@@ -10,6 +10,7 @@ import {
   updateFixedShippingZones,
 } from '@/app/admin/actions'
 import { ARGENTINA_PROVINCES } from '@/lib/argentina-provinces'
+import { ConfirmDialog } from '@/components/admin/confirm-dialog'
 
 const inputStyle = {
   border: '1px solid #e5e5e5',
@@ -101,6 +102,7 @@ export function ShippingSettingsForm({
   const [savingMode, setSavingMode] = useState(false)
   const [savingZones, setSavingZones] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
 
@@ -133,9 +135,14 @@ export function ShippingSettingsForm({
     }
   }
 
+  function handleDisconnectClick() {
+    if (!carrier) return
+    setConfirmingDisconnect(true)
+  }
+
   async function handleDisconnect() {
     if (!carrier) return
-    if (!confirm('¿Desconectar este transportista? El envío calculado se apaga hasta que conectes uno nuevo.')) return
+    setConfirmingDisconnect(false)
     setDisconnecting(true)
     setError('')
     try {
@@ -260,6 +267,15 @@ export function ShippingSettingsForm({
 
   return (
     <div className="flex flex-col gap-8">
+      <ConfirmDialog
+        open={confirmingDisconnect}
+        title="Desconectar transportista"
+        message="¿Desconectar este transportista? El envío calculado se apaga hasta que conectes uno nuevo."
+        confirmText="Desconectar"
+        danger
+        onConfirm={handleDisconnect}
+        onCancel={() => setConfirmingDisconnect(false)}
+      />
       {error && (
         <p className="text-[13px]" style={{ color: '#d81b8a' }}>
           {error}
@@ -324,7 +340,7 @@ export function ShippingSettingsForm({
                 </div>
                 <button
                   type="button"
-                  onClick={handleDisconnect}
+                  onClick={handleDisconnectClick}
                   disabled={disconnecting}
                   className="text-[13px] disabled:opacity-60"
                   style={{ color: '#6b6b6b' }}

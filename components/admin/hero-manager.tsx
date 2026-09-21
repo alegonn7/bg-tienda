@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { deleteHeroImage } from '@/app/admin/actions'
+import { ConfirmDialog } from '@/components/admin/confirm-dialog'
 
 type HeroImage = { id: string; url: string; position: number }
 
@@ -13,6 +14,7 @@ export function HeroManager({ images, organizationId }: { images: HeroImage[]; o
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -56,13 +58,22 @@ export function HeroManager({ images, organizationId }: { images: HeroImage[]; o
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('¿Eliminar esta imagen del banner?')) return
     await deleteHeroImage(id)
+    setDeletingId(null)
     router.refresh()
   }
 
   return (
     <div>
+      <ConfirmDialog
+        open={!!deletingId}
+        title="Eliminar imagen"
+        message="¿Eliminar esta imagen del banner?"
+        confirmText="Eliminar"
+        danger
+        onConfirm={() => deletingId && handleDelete(deletingId)}
+        onCancel={() => setDeletingId(null)}
+      />
       <div className="mb-6">
         <input
           ref={fileRef}
@@ -123,7 +134,7 @@ export function HeroManager({ images, organizationId }: { images: HeroImage[]; o
               />
               <button
                 type="button"
-                onClick={() => handleDelete(img.id)}
+                onClick={() => setDeletingId(img.id)}
                 className="absolute right-2 top-2 px-2 py-1 text-[12px] opacity-0 group-hover:opacity-100 transition-opacity"
                 style={{ backgroundColor: '#d81b8a', color: '#fff' }}
               >

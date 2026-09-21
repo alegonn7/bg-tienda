@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { confirmOrder, cancelOrder, refundOrder, markOrderShipped } from '@/app/admin/actions'
 import { formatPrice } from '@/lib/format'
+import { ConfirmDialog } from '@/components/admin/confirm-dialog'
 
 const PAGE_SIZE = 10
 
@@ -81,6 +82,7 @@ export function PedidosList({ orders }: { orders: Order[] }) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  const [confirmAction, setConfirmAction] = useState<{ type: 'cancel' | 'refund'; orderId: string } | null>(null)
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [dateFrom, setDateFrom] = useState('')
@@ -119,7 +121,7 @@ export function PedidosList({ orders }: { orders: Order[] }) {
   }
 
   async function handleCancel(id: string) {
-    if (!confirm('¿Cancelar este pedido? No se toca el stock.')) return
+    setConfirmAction(null)
     setBusyId(id)
     setError(null)
     try {
@@ -133,7 +135,7 @@ export function PedidosList({ orders }: { orders: Order[] }) {
   }
 
   async function handleRefund(id: string) {
-    if (!confirm('¿Reembolsar este pedido? Se le devuelve la plata al cliente en Mercado Pago y se restaura el stock.')) return
+    setConfirmAction(null)
     setBusyId(id)
     setError(null)
     try {
@@ -146,6 +148,12 @@ export function PedidosList({ orders }: { orders: Order[] }) {
     }
   }
 
+  function handleConfirmAction() {
+    if (!confirmAction) return
+    if (confirmAction.type === 'cancel') handleCancel(confirmAction.orderId)
+    else handleRefund(confirmAction.orderId)
+  }
+
   if (orders.length === 0) {
     return (
       <div className="py-20 text-center text-[14px]" style={{ color: '#6b6b6b' }}>
@@ -156,6 +164,20 @@ export function PedidosList({ orders }: { orders: Order[] }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <ConfirmDialog
+        open={!!confirmAction}
+        title={confirmAction?.type === 'refund' ? 'Reembolsar pedido' : 'Cancelar pedido'}
+        message={
+          confirmAction?.type === 'refund'
+            ? '¿Reembolsar este pedido? Se le devuelve la plata al cliente en Mercado Pago y se restaura el stock.'
+            : '¿Cancelar este pedido? No se toca el stock.'
+        }
+        confirmText={confirmAction?.type === 'refund' ? 'Reembolsar' : 'Cancelar pedido'}
+        danger
+        onConfirm={handleConfirmAction}
+        onCancel={() => setConfirmAction(null)}
+      />
+
       {/* Filtros */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex" style={{ border: '1px solid #e5e5e5' }}>
@@ -362,7 +384,7 @@ export function PedidosList({ orders }: { orders: Order[] }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleCancel(order.id)}
+                  onClick={() => setConfirmAction({ type: 'cancel', orderId: order.id })}
                   disabled={busyId === order.id}
                   className="text-[13px]"
                   style={{ color: '#6b6b6b' }}
@@ -377,7 +399,7 @@ export function PedidosList({ orders }: { orders: Order[] }) {
                 <div className="mt-4 flex items-center gap-4" style={{ borderTop: '1px solid #e5e5e5', paddingTop: '16px' }}>
                   <button
                     type="button"
-                    onClick={() => handleRefund(order.id)}
+                    onClick={() => setConfirmAction({ type: 'refund', orderId: order.id })}
                     disabled={busyId === order.id}
                     className="px-4 py-2 text-[13px] disabled:opacity-60"
                     style={{ border: '1px solid #d81b8a', color: '#d81b8a', backgroundColor: '#fff' }}
