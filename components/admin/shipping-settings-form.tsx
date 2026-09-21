@@ -207,6 +207,44 @@ export function ShippingSettingsForm({ connected, carrier, displayLabel, environ
               ))}
             </div>
 
+            <div className="p-4 text-[13px]" style={{ backgroundColor: '#f5f5f3', color: '#111111' }}>
+              {selectedCarrier === 'correo_argentino' ? (
+                <>
+                  <p className="font-medium">¿No tenés estos datos todavía?</p>
+                  <p className="mt-1" style={{ color: '#6b6b6b' }}>
+                    Pedí el alta como cliente con contrato en{' '}
+                    <a
+                      href="https://integracion.correoargentino.com.ar"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: '#111111', textDecoration: 'underline' }}
+                    >
+                      integracion.correoargentino.com.ar
+                    </a>{' '}
+                    (o en cualquier sucursal comercial). Te van a dar tres datos — User Token,
+                    Password Token y Customer ID — que son exactamente los tres campos de abajo.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium">¿No tenés estos datos todavía?</p>
+                  <p className="mt-1" style={{ color: '#6b6b6b' }}>
+                    Date de alta como Andreani PyME con acceso a la API en{' '}
+                    <a
+                      href="https://pymes.andreani.com/integraciones"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: '#111111', textDecoration: 'underline' }}
+                    >
+                      pymes.andreani.com/integraciones
+                    </a>
+                    . Te van a dar Usuario, Contraseña y un Código de contrato — los tres campos
+                    de abajo.
+                  </p>
+                </>
+              )}
+            </div>
+
             {selectedCarrier === 'correo_argentino' ? (
               <div className="grid grid-cols-2 gap-3">
                 <input
