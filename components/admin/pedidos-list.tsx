@@ -169,7 +169,7 @@ export function PedidosList({ orders }: { orders: Order[] }) {
               {isShipping ? (
                 <>
                   <div className="flex items-center justify-between">
-                    <span>Envío por {CARRIER_LABEL[order.shipping_carrier ?? ''] ?? order.shipping_carrier ?? '—'}</span>
+                    <span>{order.shipping_carrier ? `Envío por ${CARRIER_LABEL[order.shipping_carrier] ?? order.shipping_carrier}` : 'Envío a domicilio'}</span>
                     <span style={{ color: freeShipping ? '#16a34a' : '#111111' }}>
                       {freeShipping ? (
                         <>

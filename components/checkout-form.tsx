@@ -62,6 +62,7 @@ export function CheckoutForm({ store }: { store: Store }) {
       const result = await quoteShipping(
         store.organizationId,
         postalCode,
+        province,
         items.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
       )
       setQuote({ cost: result.cost, originalCost: result.originalCost, isFree: result.isFree, estimatedDays: result.estimatedDays })

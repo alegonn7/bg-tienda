@@ -138,8 +138,10 @@ export default async function OrderConfirmationPage({
 
         {order.delivery_method === 'shipping' && order.tracking_code && (
           <div className="mt-4 p-3 text-[13px]" style={{ backgroundColor: '#eafaf0', color: '#111111' }}>
-            Enviado por {CARRIER_LABEL[order.shipping_carrier ?? ''] ?? order.shipping_carrier} — código de
-            seguimiento: <strong>{order.tracking_code}</strong>
+            {order.shipping_carrier
+              ? `Enviado por ${CARRIER_LABEL[order.shipping_carrier] ?? order.shipping_carrier}`
+              : 'Enviado'}{' '}
+            — código de seguimiento: <strong>{order.tracking_code}</strong>
           </div>
         )}
 

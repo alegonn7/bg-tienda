@@ -81,10 +81,16 @@ type Delivery = {
 export async function quoteShipping(
   organizationId: string,
   destinationPostalCode: string,
+  destinationProvince: string,
   items: { productId: string; quantity: number }[],
 ): Promise<{ cost: number; originalCost: number; isFree: boolean; estimatedDays: number | null; usedDefaultDimensions: boolean }> {
   const supabase = await createClient()
-  return invokeShippingFunction(supabase, 'shipping-quote', { organizationId, destinationPostalCode, items })
+  return invokeShippingFunction(supabase, 'shipping-quote', {
+    organizationId,
+    destinationPostalCode,
+    destinationProvince,
+    items,
+  })
 }
 
 export async function createMercadoPagoCheckout(
@@ -150,6 +156,7 @@ export async function createMercadoPagoCheckout(
       const result = await invokeShippingFunction<{ cost: number; originalCost: number }>(supabase, 'shipping-quote', {
         organizationId,
         destinationPostalCode: delivery.address.postalCode,
+        destinationProvince: delivery.address.province,
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       })
       shippingCost = result.cost

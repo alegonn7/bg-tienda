@@ -424,22 +424,57 @@ export async function saveShippingOriginAddress(data: {
 // updateMercadoPagoSettings) — .update() directo sobre store_settings, sin pasar por la Edge
 // Function. freeShippingThreshold null = la tienda nunca absorbe el envío (el cliente siempre
 // paga el costo calculado); con un número, el envío es gratis a partir de ese subtotal.
-export async function updateShippingSettings(data: { enabled: boolean; freeShippingThreshold: number | null }) {
+// pricingMode 'carrier' (default) sigue exigiendo transportista conectado; 'fixed_zones' no
+// necesita ninguno, exige en cambio un costo por defecto (ver updateFixedShippingZones).
+export async function updateShippingSettings(data: {
+  enabled: boolean
+  freeShippingThreshold: number | null
+  pricingMode: 'carrier' | 'fixed_zones'
+}) {
   const ctx = await getCurrentOrgForAdmin()
   if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
 
   const supabase = await createClient()
   const { error } = await supabase
     .from('store_settings')
-    .update({ shipping_enabled: data.enabled, free_shipping_threshold: data.freeShippingThreshold })
+    .update({
+      shipping_enabled: data.enabled,
+      free_shipping_threshold: data.freeShippingThreshold,
+      shipping_pricing_mode: data.pricingMode,
+    })
     .eq('id', ctx.storeSettingsId)
 
   if (error) {
     if (error.message.includes('store_settings_shipping_requires_carrier')) {
-      throw new Error('Conectá un transportista antes de habilitar el envío calculado.')
+      throw new Error(
+        data.pricingMode === 'carrier'
+          ? 'Conectá un transportista antes de habilitar el envío calculado.'
+          : 'Cargá un costo de envío por defecto antes de habilitar el envío calculado.',
+      )
     }
     throw new Error(error.message)
   }
+  revalidatePath('/admin/configuracion')
+  revalidateStorefront()
+}
+
+// Montos fijos por zona (alternativa al envío automático): un costo por defecto + overrides
+// opcionales por provincia (ej. Buenos Aires $X, resto del país el default). Tampoco es
+// secreto, mismo .update() directo.
+export async function updateFixedShippingZones(data: {
+  defaultCost: number | null
+  zones: { province: string; cost: number }[]
+}) {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('store_settings')
+    .update({ fixed_shipping_default_cost: data.defaultCost, fixed_shipping_zones: data.zones })
+    .eq('id', ctx.storeSettingsId)
+
+  if (error) throw new Error(error.message)
   revalidatePath('/admin/configuracion')
   revalidateStorefront()
 }

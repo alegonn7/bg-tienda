@@ -19,7 +19,9 @@ export default async function ConfiguracionPage({
   const supabase = await createClient()
   const { data: storeSettings } = await supabase
     .from('store_settings')
-    .select('show_prices, payment_online_enabled, shipping_enabled, free_shipping_threshold')
+    .select(
+      'show_prices, payment_online_enabled, shipping_enabled, free_shipping_threshold, shipping_pricing_mode, fixed_shipping_default_cost, fixed_shipping_zones'
+    )
     .eq('id', ctx.storeSettingsId)
     .single()
 
@@ -68,7 +70,9 @@ export default async function ConfiguracionPage({
           Envíos
         </h2>
         <p className="mb-6 text-[13px]" style={{ color: '#6b6b6b' }}>
-          Calculá el costo real de envío con Correo Argentino o Andreani. "Retirar en el local" siempre queda disponible, aparte de esto.
+          Envío automático con Correo Argentino/Andreani, o montos fijos por provincia si no
+          querés lidiar con credenciales de transportista. "Retirar en el local" siempre queda
+          disponible, aparte de esto.
         </p>
         <ShippingSettingsForm
           connected={shippingStatus.connected}
@@ -78,6 +82,9 @@ export default async function ConfiguracionPage({
           origin={shippingStatus.origin}
           shippingEnabled={storeSettings.shipping_enabled}
           freeShippingThreshold={storeSettings.free_shipping_threshold}
+          pricingMode={storeSettings.shipping_pricing_mode as 'carrier' | 'fixed_zones'}
+          fixedShippingDefaultCost={storeSettings.fixed_shipping_default_cost}
+          fixedShippingZones={(storeSettings.fixed_shipping_zones ?? []) as { province: string; cost: number }[]}
         />
       </div>
     </div>
