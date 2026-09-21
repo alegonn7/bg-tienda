@@ -174,7 +174,7 @@ export function ProductForm({ product, categories, sizes: availableSizes, organi
       </div>
 
       {/* Precio y stock */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-[12px] uppercase" style={{ letterSpacing: '0.06em', color: '#6b6b6b' }}>
             Precio
@@ -211,7 +211,7 @@ export function ProductForm({ product, categories, sizes: availableSizes, organi
         <label className="block text-[12px] uppercase" style={{ letterSpacing: '0.06em', color: '#6b6b6b' }}>
           Peso y dimensiones (opcional, para envío calculado)
         </label>
-        <div className="mt-2 grid grid-cols-4 gap-3">
+        <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
             <span className="block text-[11px]" style={{ color: '#6b6b6b' }}>Peso (g)</span>
             <input

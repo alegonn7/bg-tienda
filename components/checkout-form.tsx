@@ -155,7 +155,7 @@ export function CheckoutForm({ store }: { store: Store }) {
       </div>
 
       {/* Datos de contacto */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-[12px] uppercase" style={labelStyle}>
             Nombre *
@@ -237,14 +237,14 @@ export function CheckoutForm({ store }: { store: Store }) {
 
       {method === 'shipping' && (
         <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <input
               type="text"
               value={street}
               onChange={(e) => setStreet(e.target.value)}
               placeholder="Calle"
               required
-              className="col-span-2 px-4 py-3 text-[14px] outline-none"
+              className="px-4 py-3 text-[14px] outline-none sm:col-span-2"
               style={inputStyle}
             />
             <input
@@ -265,7 +265,7 @@ export function CheckoutForm({ store }: { store: Store }) {
             className="px-4 py-3 text-[14px] outline-none"
             style={inputStyle}
           />
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <input
               type="text"
               value={city}

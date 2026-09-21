@@ -168,8 +168,8 @@ export function AdminProductTable({ products }: { products: Product[] }) {
         </span>
       </div>
 
-      <div style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff' }}>
-        <table className="w-full">
+      <div className="overflow-x-auto" style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff' }}>
+        <table className="w-full" style={{ minWidth: '720px' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #e5e5e5' }}>
               {['Producto', 'Categoría', 'Precio', 'Stock', 'Más vendido', 'Estado', 'Acciones'].map((h) => (

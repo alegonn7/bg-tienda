@@ -163,7 +163,7 @@ export function SuggestImagesQueue({ products }: { products: QueueProduct[] }) {
               Sin resultados. Probá con otro texto de búsqueda.
             </p>
           ) : (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {candidates.map((c) => (
                 <button
                   key={c.imageUrl}

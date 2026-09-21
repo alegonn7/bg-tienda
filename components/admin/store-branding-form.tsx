@@ -148,7 +148,7 @@ export function StoreBrandingForm({ store, slug }: { store: StoreSettings; slug:
         <div className="mt-2 flex flex-col gap-4">
           {features.map((f, i) => (
             <div key={i} className="flex flex-col gap-2 p-3" style={{ border: '1px solid #f0f0ee' }}>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <input
                   type="text"
                   value={f.title}
@@ -196,7 +196,7 @@ export function StoreBrandingForm({ store, slug }: { store: StoreSettings; slug:
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-[12px] uppercase" style={labelStyle}>
             Color de marca
@@ -234,7 +234,7 @@ export function StoreBrandingForm({ store, slug }: { store: StoreSettings; slug:
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-[12px] uppercase" style={labelStyle}>
             Instagram (link)

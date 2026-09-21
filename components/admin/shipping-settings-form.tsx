@@ -391,7 +391,7 @@ export function ShippingSettingsForm({
                 </div>
 
                 {selectedCarrier === 'correo_argentino' ? (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <input
                       type="text"
                       value={userToken}
@@ -416,12 +416,12 @@ export function ShippingSettingsForm({
                       onChange={(e) => setCustomerId(e.target.value)}
                       placeholder="Customer ID"
                       required
-                      className="col-span-2 px-4 py-3 text-[14px] outline-none"
+                      className="px-4 py-3 text-[14px] outline-none sm:col-span-2"
                       style={inputStyle}
                     />
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <input
                       type="text"
                       value={username}
@@ -446,7 +446,7 @@ export function ShippingSettingsForm({
                       onChange={(e) => setContrato(e.target.value)}
                       placeholder="Código de contrato"
                       required
-                      className="col-span-2 px-4 py-3 text-[14px] outline-none"
+                      className="px-4 py-3 text-[14px] outline-none sm:col-span-2"
                       style={inputStyle}
                     />
                   </div>
@@ -481,14 +481,14 @@ export function ShippingSettingsForm({
               Dirección de origen (desde dónde se despacha)
             </label>
             <form onSubmit={handleSaveOrigin} className="mt-3 flex flex-col gap-3">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <input
                   type="text"
                   value={street}
                   onChange={(e) => setStreet(e.target.value)}
                   placeholder="Calle"
                   required
-                  className="col-span-2 px-4 py-3 text-[14px] outline-none"
+                  className="px-4 py-3 text-[14px] outline-none sm:col-span-2"
                   style={inputStyle}
                 />
                 <input
@@ -509,7 +509,7 @@ export function ShippingSettingsForm({
                 className="px-4 py-3 text-[14px] outline-none"
                 style={inputStyle}
               />
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <input
                   type="text"
                   value={city}
@@ -585,11 +585,11 @@ export function ShippingSettingsForm({
             {zones.length > 0 && (
               <div className="flex flex-col gap-2">
                 {zones.map((z, i) => (
-                  <div key={i} className="flex items-center gap-2">
+                  <div key={i} className="flex flex-wrap items-center gap-2">
                     <select
                       value={z.province}
                       onChange={(e) => updateZoneField(i, 'province', e.target.value)}
-                      className="flex-1 px-4 py-2.5 text-[14px] outline-none"
+                      className="min-w-[160px] flex-1 px-4 py-2.5 text-[14px] outline-none"
                       style={inputStyle}
                     >
                       <option value="">Elegir provincia</option>

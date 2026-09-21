@@ -24,18 +24,18 @@ export default async function AdminLayout({
   return (
     <div style={{ backgroundColor: '#fafaf9', minHeight: '100vh' }}>
       <header
-        className="flex items-center justify-between px-8 py-4"
+        className="flex flex-col gap-3 px-4 py-4 sm:px-8 md:flex-row md:items-center md:justify-between"
         style={{
           backgroundColor: '#ffffff',
           borderBottom: '1px solid #e5e5e5',
         }}
       >
-        <div className="flex items-center gap-8">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-8">
           <span className="text-[15px] font-medium" style={{ color: '#111111' }}>
             {ctx ? `${ctx.storeName ?? ctx.organizationName} — Admin` : 'bg-tienda Admin'}
           </span>
           {ctx && (
-            <nav className="flex gap-6">
+            <nav className="flex flex-wrap gap-x-5 gap-y-2">
               <Link href="/admin" className="text-[13px]" style={{ color: '#6b6b6b' }}>
                 Productos
               </Link>
@@ -60,8 +60,8 @@ export default async function AdminLayout({
             </nav>
           )}
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-[13px]" style={{ color: '#6b6b6b' }}>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="text-[13px] break-all" style={{ color: '#6b6b6b' }}>
             {user.email}
           </span>
           {ctx && (
@@ -76,7 +76,7 @@ export default async function AdminLayout({
         {ctx ? (
           children
         ) : (
-          <div className="mx-auto max-w-[560px] px-8 py-20 text-center">
+          <div className="mx-auto max-w-[560px] px-4 py-20 text-center sm:px-8">
             <h1 className="text-[22px] font-medium" style={{ color: '#111111' }}>
               Tu organización todavía no tiene bg-tienda habilitada
             </h1>
