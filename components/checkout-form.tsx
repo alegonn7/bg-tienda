@@ -18,9 +18,12 @@ const inputStyle = {
 const labelStyle = { letterSpacing: '0.06em', color: '#6b6b6b' } as const
 
 type DeliveryMethod = 'pickup' | 'shipping'
+type Step = 'form' | 'review'
 
 export function CheckoutForm({ store }: { store: Store }) {
   const { items } = useCart()
+
+  const [step, setStep] = useState<Step>('form')
 
   const [method, setMethod] = useState<DeliveryMethod>('pickup')
   const [customerName, setCustomerName] = useState('')
@@ -41,11 +44,13 @@ export function CheckoutForm({ store }: { store: Store }) {
   )
   const [quoteError, setQuoteError] = useState('')
 
+  const [continueError, setContinueError] = useState('')
   const [paying, setPaying] = useState(false)
   const [error, setError] = useState('')
 
   const subtotal = items.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0)
-  const total = subtotal + (method === 'shipping' ? quote?.cost ?? 0 : 0)
+  const shippingCost = method === 'shipping' ? quote?.cost ?? 0 : 0
+  const total = subtotal + shippingCost
 
   function handleMethodChange(next: DeliveryMethod) {
     setMethod(next)
@@ -73,8 +78,19 @@ export function CheckoutForm({ store }: { store: Store }) {
     }
   }
 
-  async function handlePay(e: React.FormEvent) {
+  // Sin llamada al servidor -- solo valida lo que el form ya requiere y pasa a la revisión.
+  // El pedido recién se crea (y se cobra) cuando se confirma ahí, en handlePay.
+  function handleContinue(e: React.FormEvent) {
     e.preventDefault()
+    setContinueError('')
+    if (method === 'shipping' && !quote) {
+      setContinueError('Calculá el costo de envío antes de continuar.')
+      return
+    }
+    setStep('review')
+  }
+
+  async function handlePay() {
     setPaying(true)
     setError('')
     try {
@@ -119,8 +135,116 @@ export function CheckoutForm({ store }: { store: Store }) {
     )
   }
 
+  if (step === 'review') {
+    return (
+      <div className="flex flex-col gap-8">
+        <div>
+          <button
+            type="button"
+            onClick={() => setStep('form')}
+            className="text-[13px]"
+            style={{ color: '#6b6b6b' }}
+          >
+            ← Volver a editar
+          </button>
+          <h1 className="mt-3 text-[22px] font-medium" style={{ color: '#111111' }}>
+            Revisá tu pedido
+          </h1>
+        </div>
+
+        <div className="flex flex-col gap-3" style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: '1.5rem' }}>
+          {items.map((item) => (
+            <div key={item.key} className="flex items-center justify-between gap-3">
+              <p className="text-[14px]" style={{ color: '#111111' }}>
+                {item.quantity}× {item.product.name}
+                {item.size ? ` — ${item.size}` : ''}
+              </p>
+              {store.showPrices && (
+                <span className="text-[14px]" style={{ color: '#111111' }}>
+                  {formatPrice((item.product.price ?? 0) * item.quantity)}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="text-[13px]" style={{ color: '#6b6b6b' }}>
+          <p className="mb-1 text-[12px] uppercase" style={{ letterSpacing: '0.06em' }}>
+            Contacto
+          </p>
+          <p style={{ color: '#111111' }}>
+            {customerName} — {customerPhone}
+          </p>
+          <p>{customerEmail}</p>
+        </div>
+
+        <div className="text-[13px]" style={{ color: '#6b6b6b' }}>
+          <p className="mb-1 text-[12px] uppercase" style={{ letterSpacing: '0.06em' }}>
+            Entrega
+          </p>
+          {method === 'shipping' ? (
+            <p style={{ color: '#111111' }}>
+              {street} {number}
+              {floorApartment ? `, ${floorApartment}` : ''}, {city}, {province} (CP {postalCode})
+            </p>
+          ) : (
+            <p style={{ color: '#111111' }}>Retira en el local</p>
+          )}
+          {customerNote && <p className="mt-1">Nota: {customerNote}</p>}
+        </div>
+
+        {store.showPrices && (
+          <div className="flex flex-col gap-2" style={{ borderTop: '1px solid #e5e5e5', paddingTop: '1rem' }}>
+            <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
+              <span>Subtotal</span>
+              <span>{formatPrice(subtotal)}</span>
+            </div>
+            {method === 'shipping' && (
+              <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
+                <span>Envío</span>
+                <span>
+                  {quote?.isFree ? (
+                    <>
+                      <span style={{ color: '#16a34a' }}>Gratis</span>{' '}
+                      <span style={{ textDecoration: 'line-through' }}>{formatPrice(quote.originalCost)}</span>
+                    </>
+                  ) : (
+                    formatPrice(shippingCost)
+                  )}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between" style={{ paddingTop: '0.5rem', borderTop: '1px solid #f0f0ee' }}>
+              <span className="text-[14px]" style={{ color: '#6b6b6b' }}>
+                Total
+              </span>
+              <span className="text-[18px] font-medium" style={{ color: '#111111' }}>
+                {formatPrice(total)}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <p className="text-[13px]" style={{ color: '#d81b8a' }}>
+            {error}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={handlePay}
+          disabled={paying}
+          className="pc-btn w-full px-4 py-3 text-[14px] disabled:opacity-60"
+        >
+          {paying ? 'Redirigiendo a Mercado Pago...' : 'Pagar con Mercado Pago →'}
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <form onSubmit={handlePay} className="flex flex-col gap-8">
+    <form onSubmit={handleContinue} className="flex flex-col gap-8">
       <h1 className="text-[22px] font-medium" style={{ color: '#111111' }}>
         Finalizar compra
       </h1>
@@ -182,7 +306,7 @@ export function CheckoutForm({ store }: { store: Store }) {
             style={inputStyle}
           />
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className="block text-[12px] uppercase" style={labelStyle}>
             Email *
           </label>
@@ -351,28 +475,40 @@ export function CheckoutForm({ store }: { store: Store }) {
       </div>
 
       {store.showPrices && (
-        <div className="flex items-center justify-between" style={{ borderTop: '1px solid #e5e5e5', paddingTop: '1rem' }}>
-          <span className="text-[14px]" style={{ color: '#6b6b6b' }}>
-            Total
-          </span>
-          <span className="text-[16px] font-medium" style={{ color: '#111111' }}>
-            {formatPrice(total)}
-          </span>
+        <div className="flex flex-col gap-2" style={{ borderTop: '1px solid #e5e5e5', paddingTop: '1rem' }}>
+          <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
+            <span>Subtotal</span>
+            <span>{formatPrice(subtotal)}</span>
+          </div>
+          {method === 'shipping' && quote && (
+            <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
+              <span>Envío</span>
+              <span>{quote.isFree ? 'Gratis' : formatPrice(shippingCost)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between" style={{ paddingTop: '0.5rem', borderTop: '1px solid #f0f0ee' }}>
+            <span className="text-[14px]" style={{ color: '#6b6b6b' }}>
+              Total
+            </span>
+            <span className="text-[16px] font-medium" style={{ color: '#111111' }}>
+              {formatPrice(total)}
+            </span>
+          </div>
         </div>
       )}
 
-      {error && (
+      {continueError && (
         <p className="text-[13px]" style={{ color: '#d81b8a' }}>
-          {error}
+          {continueError}
         </p>
       )}
 
       <button
         type="submit"
-        disabled={paying || (method === 'shipping' && !quote)}
+        disabled={method === 'shipping' && !quote}
         className="pc-btn w-full px-4 py-3 text-[14px] disabled:opacity-60"
       >
-        {paying ? 'Redirigiendo a Mercado Pago...' : 'Pagar con Mercado Pago →'}
+        Confirmar →
       </button>
     </form>
   )
