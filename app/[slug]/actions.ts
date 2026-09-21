@@ -195,13 +195,19 @@ export async function createMercadoPagoCheckout(
       .select('id')
       .single()
 
-    if (orderError) throw new Error('No se pudo crear el pedido. Intentá de nuevo.')
+    if (orderError) {
+      console.error('createMercadoPagoCheckout: insert store_orders falló', orderError.code, orderError.message, orderError.details, orderError.hint)
+      throw new Error('No se pudo crear el pedido. Intentá de nuevo.')
+    }
 
     const { error: itemsError } = await supabase
       .from('store_order_items')
       .insert(orderItems.map((item) => ({ ...item, store_order_id: order.id })))
 
-    if (itemsError) throw new Error('No se pudo crear el pedido. Intentá de nuevo.')
+    if (itemsError) {
+      console.error('createMercadoPagoCheckout: insert store_order_items falló', itemsError.code, itemsError.message, itemsError.details, itemsError.hint)
+      throw new Error('No se pudo crear el pedido. Intentá de nuevo.')
+    }
 
     return await invokeMercadoPagoFunction<{ checkoutUrl: string }>(supabase, 'mercadopago-checkout', {
       storeOrderId: order.id,
