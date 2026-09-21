@@ -36,7 +36,9 @@ export function CheckoutForm({ store }: { store: Store }) {
   const [postalCode, setPostalCode] = useState('')
 
   const [quoting, setQuoting] = useState(false)
-  const [quote, setQuote] = useState<{ cost: number; estimatedDays: number | null } | null>(null)
+  const [quote, setQuote] = useState<{ cost: number; originalCost: number; isFree: boolean; estimatedDays: number | null } | null>(
+    null,
+  )
   const [quoteError, setQuoteError] = useState('')
 
   const [paying, setPaying] = useState(false)
@@ -62,7 +64,7 @@ export function CheckoutForm({ store }: { store: Store }) {
         postalCode,
         items.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
       )
-      setQuote({ cost: result.cost, estimatedDays: result.estimatedDays })
+      setQuote({ cost: result.cost, originalCost: result.originalCost, isFree: result.isFree, estimatedDays: result.estimatedDays })
     } catch (err) {
       setQuoteError(err instanceof Error ? err.message : 'No se pudo calcular el envío')
     } finally {
@@ -317,7 +319,17 @@ export function CheckoutForm({ store }: { store: Store }) {
           )}
           {quote && (
             <p className="text-[13px]" style={{ color: '#16a34a' }}>
-              Envío: {formatPrice(quote.cost)}
+              Envío:{' '}
+              {quote.isFree ? (
+                <>
+                  Gratis{' '}
+                  <span style={{ color: '#6b6b6b', textDecoration: 'line-through' }}>
+                    {formatPrice(quote.originalCost)}
+                  </span>
+                </>
+              ) : (
+                formatPrice(quote.cost)
+              )}
               {quote.estimatedDays ? ` — llega en ${quote.estimatedDays} días aprox.` : ''}
             </p>
           )}

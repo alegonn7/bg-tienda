@@ -18,6 +18,10 @@ const inputStyle = {
 
 const labelStyle = { letterSpacing: '0.06em', color: '#6b6b6b' } as const
 
+function parseThreshold(value: string): number | null {
+  return value.trim() === '' ? null : Number(value)
+}
+
 type Carrier = 'correo_argentino' | 'andreani'
 
 type OriginAddress = {
@@ -36,9 +40,18 @@ type Props = {
   environment: 'test' | 'production' | null
   origin: OriginAddress | null
   shippingEnabled: boolean
+  freeShippingThreshold: number | null
 }
 
-export function ShippingSettingsForm({ connected, carrier, displayLabel, environment, origin, shippingEnabled }: Props) {
+export function ShippingSettingsForm({
+  connected,
+  carrier,
+  displayLabel,
+  environment,
+  origin,
+  shippingEnabled,
+  freeShippingThreshold,
+}: Props) {
   const router = useRouter()
 
   const [selectedCarrier, setSelectedCarrier] = useState<Carrier>(carrier ?? 'correo_argentino')
@@ -63,10 +76,12 @@ export function ShippingSettingsForm({ connected, carrier, displayLabel, environ
   const [postalCode, setPostalCode] = useState(origin?.shipping_origin_postal_code ?? '')
 
   const [enabled, setEnabled] = useState(shippingEnabled)
+  const [threshold, setThreshold] = useState(freeShippingThreshold != null ? String(freeShippingThreshold) : '')
 
   const [savingCredentials, setSavingCredentials] = useState(false)
   const [savingOrigin, setSavingOrigin] = useState(false)
   const [savingEnabled, setSavingEnabled] = useState(false)
+  const [savingThreshold, setSavingThreshold] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
@@ -135,13 +150,33 @@ export function ShippingSettingsForm({ connected, carrier, displayLabel, environ
     setSavingEnabled(true)
     setError('')
     try {
-      await updateShippingSettings({ enabled: next })
+      await updateShippingSettings({ enabled: next, freeShippingThreshold: parseThreshold(threshold) })
       router.refresh()
     } catch (err) {
       setEnabled(!next)
       setError(err instanceof Error ? err.message : 'Error guardando')
     } finally {
       setSavingEnabled(false)
+    }
+  }
+
+  async function handleSaveThreshold(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingThreshold(true)
+    setError('')
+    setSaved('')
+    try {
+      const parsed = parseThreshold(threshold)
+      if (parsed != null && (Number.isNaN(parsed) || parsed < 0)) {
+        throw new Error('Tiene que ser un número positivo.')
+      }
+      await updateShippingSettings({ enabled, freeShippingThreshold: parsed })
+      setSaved('Guardado.')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error guardando')
+    } finally {
+      setSavingThreshold(false)
     }
   }
 
@@ -407,6 +442,37 @@ export function ShippingSettingsForm({ connected, carrier, displayLabel, environ
             {savingOrigin ? 'Guardando...' : 'Guardar dirección →'}
           </button>
         </form>
+      </div>
+
+      {/* Envío gratis a partir de un monto */}
+      <div>
+        <label className="block text-[12px] uppercase" style={labelStyle}>
+          Envío gratis a partir de (opcional)
+        </label>
+        <form onSubmit={handleSaveThreshold} className="mt-3 flex items-center gap-2">
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={threshold}
+            onChange={(e) => setThreshold(e.target.value)}
+            placeholder="Dejalo vacío para nunca absorber el envío"
+            className="max-w-[320px] flex-1 px-4 py-3 text-[15px] outline-none"
+            style={inputStyle}
+          />
+          <button
+            type="submit"
+            disabled={savingThreshold}
+            className="px-4 py-3 text-[13px] disabled:opacity-60"
+            style={{ border: '1px solid #111111', color: '#111111', backgroundColor: '#fff' }}
+          >
+            {savingThreshold ? 'Guardando...' : 'Guardar →'}
+          </button>
+        </form>
+        <p className="mt-1 text-[12px]" style={{ color: '#6b6b6b' }}>
+          Si el subtotal del carrito llega a este monto, el envío le sale gratis al cliente y lo
+          absorbés vos. Vacío = el cliente siempre paga el envío calculado.
+        </p>
       </div>
 
       {/* Habilitar */}

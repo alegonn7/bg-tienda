@@ -22,6 +22,7 @@ type PublicOrder = {
   subtotal: number | null
   total: number | null
   delivery_method: 'pickup' | 'shipping' | null
+  shipping_carrier: 'correo_argentino' | 'andreani' | null
   shipping_street: string | null
   shipping_number: string | null
   shipping_floor_apartment: string | null
@@ -29,9 +30,17 @@ type PublicOrder = {
   shipping_province: string | null
   shipping_postal_code: string | null
   shipping_cost: number | null
+  shipping_original_cost: number | null
+  tracking_code: string | null
+  shipped_at: string | null
   created_at: string
   confirmed_at: string | null
   items: PublicOrderItem[]
+}
+
+const CARRIER_LABEL: Record<string, string> = {
+  correo_argentino: 'Correo Argentino',
+  andreani: 'Andreani',
 }
 
 const STATUS_COPY: Record<PublicOrder['status'], { title: string; text: string; color: string }> = {
@@ -127,11 +136,27 @@ export default async function OrderConfirmationPage({
           </div>
         )}
 
+        {order.delivery_method === 'shipping' && order.tracking_code && (
+          <div className="mt-4 p-3 text-[13px]" style={{ backgroundColor: '#eafaf0', color: '#111111' }}>
+            Enviado por {CARRIER_LABEL[order.shipping_carrier ?? ''] ?? order.shipping_carrier} — código de
+            seguimiento: <strong>{order.tracking_code}</strong>
+          </div>
+        )}
+
         <div className="mt-6 flex flex-col gap-2" style={{ borderTop: '1px solid #e5e5e5', paddingTop: '1.5rem' }}>
-          {!!order.shipping_cost && order.shipping_cost > 0 && (
+          {order.delivery_method === 'shipping' && (
             <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
               <span>Envío</span>
-              <span>{formatPrice(order.shipping_cost)}</span>
+              <span>
+                {order.shipping_original_cost != null && order.shipping_original_cost > (order.shipping_cost ?? 0) ? (
+                  <>
+                    <span style={{ color: '#16a34a' }}>Gratis</span>{' '}
+                    <span style={{ textDecoration: 'line-through' }}>{formatPrice(order.shipping_original_cost)}</span>
+                  </>
+                ) : (
+                  formatPrice(order.shipping_cost)
+                )}
+              </span>
             </div>
           )}
           <div className="flex items-center justify-between">

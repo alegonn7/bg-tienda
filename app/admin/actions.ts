@@ -217,6 +217,15 @@ export async function refundOrder(orderId: string, reason?: string) {
   revalidateStorefront()
 }
 
+// Marca un pedido con envío como despachado: guarda el código de seguimiento y le manda el email
+// al cliente -- todo eso vive en la Edge Function shipping-mark-shipped (necesita el secret de
+// SMTP, que ecomerse no tiene).
+export async function markOrderShipped(orderId: string, trackingCode: string) {
+  const supabase = await createClient()
+  await invokeShippingFunction(supabase, 'shipping-mark-shipped', { storeOrderId: orderId, trackingCode })
+  revalidatePath('/admin/pedidos')
+}
+
 // Branding de la tienda — nombre público, textos del hero, color, contacto. El slug (URL de la
 // tienda) NO se edita desde acá a propósito: cambiarlo rompe links ya compartidos, queda del
 // lado de admin-gestion/soporte.
@@ -413,15 +422,16 @@ export async function saveShippingOriginAddress(data: {
 
 // A diferencia de las credenciales, esto no es secreto (mismo criterio que
 // updateMercadoPagoSettings) — .update() directo sobre store_settings, sin pasar por la Edge
-// Function.
-export async function updateShippingSettings(data: { enabled: boolean }) {
+// Function. freeShippingThreshold null = la tienda nunca absorbe el envío (el cliente siempre
+// paga el costo calculado); con un número, el envío es gratis a partir de ese subtotal.
+export async function updateShippingSettings(data: { enabled: boolean; freeShippingThreshold: number | null }) {
   const ctx = await getCurrentOrgForAdmin()
   if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
 
   const supabase = await createClient()
   const { error } = await supabase
     .from('store_settings')
-    .update({ shipping_enabled: data.enabled })
+    .update({ shipping_enabled: data.enabled, free_shipping_threshold: data.freeShippingThreshold })
     .eq('id', ctx.storeSettingsId)
 
   if (error) {

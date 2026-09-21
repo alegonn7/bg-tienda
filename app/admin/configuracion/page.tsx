@@ -19,7 +19,7 @@ export default async function ConfiguracionPage({
   const supabase = await createClient()
   const { data: storeSettings } = await supabase
     .from('store_settings')
-    .select('show_prices, payment_online_enabled, shipping_enabled')
+    .select('show_prices, payment_online_enabled, shipping_enabled, free_shipping_threshold')
     .eq('id', ctx.storeSettingsId)
     .single()
 
@@ -77,6 +77,7 @@ export default async function ConfiguracionPage({
           environment={shippingStatus.environment as 'test' | 'production' | null}
           origin={shippingStatus.origin}
           shippingEnabled={storeSettings.shipping_enabled}
+          freeShippingThreshold={storeSettings.free_shipping_threshold}
         />
       </div>
     </div>

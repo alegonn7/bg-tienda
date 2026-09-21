@@ -82,7 +82,7 @@ export async function quoteShipping(
   organizationId: string,
   destinationPostalCode: string,
   items: { productId: string; quantity: number }[],
-): Promise<{ cost: number; estimatedDays: number | null; usedDefaultDimensions: boolean }> {
+): Promise<{ cost: number; originalCost: number; isFree: boolean; estimatedDays: number | null; usedDefaultDimensions: boolean }> {
   const supabase = await createClient()
   return invokeShippingFunction(supabase, 'shipping-quote', { organizationId, destinationPostalCode, items })
 }
@@ -137,6 +137,7 @@ export async function createMercadoPagoCheckout(
     // Recotización autoritativa server-to-server: nunca se confía en el costo que ya se mostró
     // en el navegador durante el preview (quoteShipping).
     let shippingCost = 0
+    let shippingOriginalCost: number | null = null
     let shippingCarrier: string | null = null
     if (delivery.method === 'shipping' && delivery.address) {
       const { data: settings } = await supabase
@@ -146,12 +147,16 @@ export async function createMercadoPagoCheckout(
         .single()
       shippingCarrier = settings?.shipping_carrier ?? null
 
-      const result = await invokeShippingFunction<{ cost: number }>(supabase, 'shipping-quote', {
+      const result = await invokeShippingFunction<{ cost: number; originalCost: number }>(supabase, 'shipping-quote', {
         organizationId,
         destinationPostalCode: delivery.address.postalCode,
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       })
       shippingCost = result.cost
+      // Solo se guarda cuando hay descuento real -- así el resto del código (pantalla de
+      // pedido, admin, emails) puede usar "shipping_original_cost != null" como el único chequeo
+      // de "¿este envío se lo bonificamos?", sin tener que comparar números en cada lugar.
+      shippingOriginalCost = result.originalCost > result.cost ? result.originalCost : null
     }
 
     const { data: order, error: orderError } = await supabase
@@ -169,7 +174,10 @@ export async function createMercadoPagoCheckout(
         customer_note: delivery.customerNote || null,
         delivery_method: delivery.method,
         shipping_carrier: shippingCarrier,
-        shipping_cost: shippingCost || null,
+        // A diferencia de "|| null": 0 es un costo de envío legítimo (envío gratis por monto
+        // mínimo), no debe perderse como null -- null acá significa "no es un pedido con envío".
+        shipping_cost: delivery.method === 'shipping' ? shippingCost : null,
+        shipping_original_cost: shippingOriginalCost,
         shipping_street: delivery.address?.street || null,
         shipping_number: delivery.address?.number || null,
         shipping_floor_apartment: delivery.address?.floorApartment || null,
