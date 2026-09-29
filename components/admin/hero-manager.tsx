@@ -3,7 +3,8 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { deleteHeroImage } from '@/app/admin/actions'
+import { deleteHeroImage, refreshStorefrontHero } from '@/app/admin/actions'
+import { compressImage } from '@/lib/compress-image'
 import { ConfirmDialog } from '@/components/admin/confirm-dialog'
 
 type HeroImage = { id: string; url: string; position: number }
@@ -23,7 +24,8 @@ export function HeroManager({ images, organizationId }: { images: HeroImage[]; o
     setUploading(true)
     setError('')
 
-    for (const file of files) {
+    for (const original of files) {
+      const file = await compressImage(original, { maxSize: 1920 })
       const ext = file.name.split('.').pop()
       const filename = `${organizationId}/hero/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
@@ -52,6 +54,7 @@ export function HeroManager({ images, organizationId }: { images: HeroImage[]; o
       }
     }
 
+    await refreshStorefrontHero()
     setUploading(false)
     if (fileRef.current) fileRef.current.value = ''
     router.refresh()

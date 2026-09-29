@@ -4,6 +4,14 @@ import { useState, useEffect } from 'react'
 
 export function HeroSlider({ images }: { images: string[] }) {
   const [current, setCurrent] = useState(0)
+  // Solo se descargan la imagen visible y la siguiente (precarga para el fade). Antes se pedían
+  // todas juntas al abrir la home, compitiendo con el resto de la página.
+  const [loaded, setLoaded] = useState<Set<number>>(() => new Set([0, 1]))
+
+  useEffect(() => {
+    const next = (current + 1) % Math.max(images.length, 1)
+    setLoaded((prev) => (prev.has(current) && prev.has(next) ? prev : new Set([...prev, current, next])))
+  }, [current, images.length])
 
   useEffect(() => {
     if (images.length <= 1) return
@@ -24,7 +32,7 @@ export function HeroSlider({ images }: { images: string[] }) {
           style={{
             opacity: i === current ? 1 : 0,
             transition: 'opacity 1s ease-in-out',
-            backgroundImage: `url(${url})`,
+            backgroundImage: loaded.has(i) ? `url(${url})` : undefined,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}

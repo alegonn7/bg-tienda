@@ -3,6 +3,17 @@ import type { Metadata } from 'next'
 import { getStoreBySlug } from '@/lib/tenant'
 import { CartProvider } from '@/components/cart-context'
 
+// Las páginas públicas de la tienda se cachean (ISR): la primera visita a cada tienda/producto
+// las renderiza y las siguientes se sirven desde caché, sin ir a Supabase. Los cambios hechos
+// desde /admin invalidan la caché al instante (revalidateStorefront en app/admin/actions.ts);
+// los que vienen de afuera (ventas en bg-gestion que cambian stock, etc.) se reflejan en ≤60s.
+// app/[slug]/pedido/* sigue siendo dinámico: usa la sesión (cookies) y siempre lee en vivo.
+export const revalidate = 60
+
+export function generateStaticParams() {
+  return []
+}
+
 export async function generateMetadata({
   params,
 }: {

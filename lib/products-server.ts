@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
 import type { Product } from '@/lib/products'
 
 // ---------------------------------------------------------------------------
@@ -39,35 +40,40 @@ function mapCatalogRow(row: CatalogRow): Product {
   }
 }
 
-export async function getProducts(organizationId: string): Promise<Product[]> {
-  const supabase = await createClient()
-  const { data } = await supabase
+export async function getProducts(organizationId: string, limit?: number): Promise<Product[]> {
+  const supabase = createPublicClient()
+  let query = supabase
     .from('store_catalog')
     .select('*')
     .eq('organization_id', organizationId)
     .order('created_at', { ascending: false })
+  if (limit) query = query.limit(limit)
+  const { data, error } = await query
+  if (error) throw new Error(`getProducts: ${error.message}`)
   return (data ?? []).map(mapCatalogRow)
 }
 
 export async function getFeaturedProducts(organizationId: string): Promise<Product[]> {
-  const supabase = await createClient()
-  const { data } = await supabase
+  const supabase = createPublicClient()
+  const { data, error } = await supabase
     .from('store_catalog')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('featured', true)
     .order('created_at', { ascending: false })
+  if (error) throw new Error(`getFeaturedProducts: ${error.message}`)
   return (data ?? []).map(mapCatalogRow)
 }
 
 export async function getProduct(organizationId: string, productId: string): Promise<Product | null> {
-  const supabase = await createClient()
-  const { data } = await supabase
+  const supabase = createPublicClient()
+  const { data, error } = await supabase
     .from('store_catalog')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('product_id', productId)
     .maybeSingle()
+  if (error) throw new Error(`getProduct: ${error.message}`)
   return data ? mapCatalogRow(data) : null
 }
 

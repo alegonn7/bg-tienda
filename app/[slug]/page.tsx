@@ -6,7 +6,7 @@ import { getProducts, getFeaturedProducts } from '@/lib/products-server'
 import { FeaturedCarousel } from '@/components/featured-carousel'
 import { HeroSlider } from '@/components/hero-slider'
 import { getStoreBySlug } from '@/lib/tenant'
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
 import { FEATURE_ICONS } from '@/lib/feature-icons'
 import { Sparkles } from 'lucide-react'
 
@@ -25,9 +25,9 @@ export default async function HomePage({
   const store = await getStoreBySlug(slug)
   if (!store) notFound()
 
-  const supabase = await createClient()
-  const [products, featured, { data: heroData }] = await Promise.all([
-    getProducts(store.organizationId),
+  const supabase = createPublicClient()
+  const [preview, featured, { data: heroData, error: heroError }] = await Promise.all([
+    getProducts(store.organizationId, 3),
     getFeaturedProducts(store.organizationId),
     supabase
       .from('hero_images')
@@ -35,7 +35,8 @@ export default async function HomePage({
       .eq('organization_id', store.organizationId)
       .order('position'),
   ])
-  const preview = products.slice(0, 3)
+  // Error de Supabase -> lanzar, para no cachear (ISR) la home sin banner.
+  if (heroError) throw new Error(`hero_images: ${heroError.message}`)
   const heroImages = (heroData ?? []).map((h) => h.url)
   const hasHero = heroImages.length > 0
   const brandName = store.storeName ?? store.organizationName

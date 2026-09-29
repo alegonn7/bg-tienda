@@ -1,5 +1,6 @@
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
 
 export type Store = {
   organizationId: string
@@ -34,13 +35,16 @@ export type Store = {
 // Resuelve slug -> tienda pública. Usa la vista store_directory (Fase 01), que ya filtra por
 // enabled=true y solo expone columnas seguras para un visitante sin sesión.
 export const getStoreBySlug = cache(async (slug: string): Promise<Store | null> => {
-  const supabase = await createClient()
-  const { data } = await supabase
+  const supabase = createPublicClient()
+  const { data, error } = await supabase
     .from('store_directory')
     .select('*')
     .eq('slug', slug)
     .maybeSingle()
 
+  // Un error de red/Supabase NO es "la tienda no existe": se lanza para que la página cacheada
+  // (ISR) no quede guardada como 404 — Next sigue sirviendo la última versión buena.
+  if (error) throw new Error(`getStoreBySlug(${slug}): ${error.message}`)
   if (!data) return null
 
   return {
@@ -87,18 +91,26 @@ export type AdminOrgContext = {
   faviconUrl: string | null
 }
 
+// Usuario logueado, una sola vez por request (layout, page y server actions comparten el
+// resultado vía cache()). getClaims() valida la firma del JWT localmente cuando el proyecto
+// usa signing keys asimétricas — sin ir al servidor de Auth en cada navegación del admin — y
+// si no, cae a getUser() igual que antes.
+export const getAuthUser = cache(async (): Promise<{ id: string; email: string | null } | null> => {
+  const supabase = await createClient()
+  const { data, error } = await supabase.auth.getClaims()
+  if (error || !data?.claims?.sub) return null
+  return { id: data.claims.sub, email: (data.claims.email as string | undefined) ?? null }
+})
+
 // Resuelve la organización del usuario logueado a partir de su sesión (nunca de la URL — ver
 // Fase 04). Devuelve null si no hay sesión, si el usuario no pertenece a ninguna organización,
 // o si su organización no tiene bg-tienda habilitada — en cualquiera de esos casos /admin debe
 // mostrar un estado claro en vez de intentar operar sin organización resuelta.
 export const getCurrentOrgForAdmin = cache(async (): Promise<AdminOrgContext | null> => {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const user = await getAuthUser()
   if (!user) return null
 
+  const supabase = await createClient()
   const { data: userRow } = await supabase
     .from('users')
     .select('id, organization_id, role, organizations(slug, name, logo_url)')

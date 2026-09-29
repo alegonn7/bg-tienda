@@ -1,6 +1,5 @@
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
-import { getCurrentOrgForAdmin } from '@/lib/tenant'
+import { getAuthUser, getCurrentOrgForAdmin } from '@/lib/tenant'
 import { LogoutButton } from '@/components/admin/logout-button'
 
 export default async function AdminLayout({
@@ -8,10 +7,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getAuthUser()
 
   if (!user) {
     // proxy.ts ya debería haber redirigido a /admin/login antes de llegar acá — esto es defensa

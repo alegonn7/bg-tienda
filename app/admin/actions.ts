@@ -176,6 +176,15 @@ export async function deleteSize(id: string) {
 }
 
 // Hero images
+// Las imágenes del banner se suben/insertan desde el cliente (hero-manager.tsx), así que la
+// caché de la tienda hay que invalidarla explícitamente después.
+export async function refreshStorefrontHero() {
+  const ctx = await getCurrentOrgForAdmin()
+  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  revalidatePath('/admin/hero')
+  revalidateStorefront()
+}
+
 export async function deleteHeroImage(id: string) {
   const supabase = await createClient()
   const { error } = await supabase.from('hero_images').delete().eq('id', id)

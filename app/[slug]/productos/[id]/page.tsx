@@ -7,6 +7,12 @@ import { productImage } from '@/lib/products'
 import { getStoreBySlug } from '@/lib/tenant'
 import { formatPrice } from '@/lib/format'
 
+// Cada producto se renderiza la primera vez que alguien lo visita y queda cacheado (ISR, ver
+// app/[slug]/layout.tsx).
+export function generateStaticParams() {
+  return []
+}
+
 export default async function ProductDetailPage({
   params,
 }: {
@@ -16,14 +22,16 @@ export default async function ProductDetailPage({
   const store = await getStoreBySlug(slug)
   if (!store) notFound()
 
-  const [product, allProducts] = await Promise.all([
+  // Para "relacionados" alcanzan 4 (3 + el propio producto, que se filtra) — no hace falta
+  // traer el catálogo entero.
+  const [product, latest] = await Promise.all([
     getProduct(store.organizationId, id),
-    getProducts(store.organizationId),
+    getProducts(store.organizationId, 4),
   ])
 
   if (!product) notFound()
 
-  const related = allProducts
+  const related = latest
     .filter((p) => p.id !== product.id)
     .slice(0, 3)
 

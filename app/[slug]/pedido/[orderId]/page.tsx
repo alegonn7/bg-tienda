@@ -40,6 +40,9 @@ type PublicOrder = {
   items: PublicOrderItem[]
 }
 
+// El estado del pedido cambia (pago confirmado, envío, etc.) — nunca cachear esta página.
+export const dynamic = 'force-dynamic'
+
 const CARRIER_LABEL: Record<string, string> = {
   correo_argentino: 'Correo Argentino',
   andreani: 'Andreani',

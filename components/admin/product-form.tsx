@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Product } from '@/lib/products'
 import { createProduct, updateProduct } from '@/app/admin/actions'
+import { compressImage } from '@/lib/compress-image'
 
 type Item = { id: string; name: string }
 
@@ -50,7 +51,8 @@ export function ProductForm({ product, categories, sizes: availableSizes, organi
 
     const urls: string[] = []
 
-    for (const file of files) {
+    for (const original of files) {
+      const file = await compressImage(original, { maxSize: 1400 })
       const ext = file.name.split('.').pop()
       const filename = `${organizationId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 

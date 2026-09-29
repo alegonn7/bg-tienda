@@ -25,9 +25,10 @@ export async function proxy(request: NextRequest) {
     },
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // getClaims() refresca la sesión si hace falta (igual que getUser) pero valida el JWT
+  // localmente cuando hay signing keys asimétricas, en vez de ir a Supabase Auth en cada request.
+  const { data } = await supabase.auth.getClaims()
+  const user = data?.claims?.sub ? data.claims : null
 
   const isLoginPage = request.nextUrl.pathname === '/admin/login'
 
