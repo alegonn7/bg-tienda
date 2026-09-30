@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { SiteShell } from '@/components/site-shell'
@@ -15,6 +16,13 @@ const DEFAULT_FEATURES = [
   { title: 'Atención directa', text: 'Coordinás todo por WhatsApp', icon: 'chat' },
   { title: 'Fácil de pedir', text: 'Elegís, consultás y listo', icon: 'check' },
 ]
+
+// Título, description y Open Graph vienen de app/[slug]/layout.tsx; acá solo el canonical, que
+// no puede ir en el layout porque lo heredarían /productos y cada producto.
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  return { alternates: { canonical: `/${slug}` } }
+}
 
 export default async function HomePage({
   params,

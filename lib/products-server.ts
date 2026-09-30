@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { createPublicClient } from '@/lib/supabase/public'
 import type { Product } from '@/lib/products'
@@ -65,7 +66,9 @@ export async function getFeaturedProducts(organizationId: string): Promise<Produ
   return (data ?? []).map(mapCatalogRow)
 }
 
-export async function getProduct(organizationId: string, productId: string): Promise<Product | null> {
+// cache(): generateMetadata y la página del producto lo piden con los mismos argumentos en el
+// mismo request; así se consulta a Supabase una sola vez.
+export const getProduct = cache(async (organizationId: string, productId: string): Promise<Product | null> => {
   const supabase = createPublicClient()
   const { data, error } = await supabase
     .from('store_catalog')
@@ -75,7 +78,7 @@ export async function getProduct(organizationId: string, productId: string): Pro
     .maybeSingle()
   if (error) throw new Error(`getProduct: ${error.message}`)
   return data ? mapCatalogRow(data) : null
-}
+})
 
 // ---------------------------------------------------------------------------
 // Admin (/admin) — lee de las tablas reales (products + products_branch),

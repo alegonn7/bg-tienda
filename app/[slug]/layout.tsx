@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getStoreBySlug } from '@/lib/tenant'
+import { metaDescription, storeDisplayName } from '@/lib/seo'
 import { CartProvider } from '@/components/cart-context'
 
 // Las páginas públicas de la tienda se cachean (ISR): la primera visita a cada tienda/producto
@@ -24,10 +25,11 @@ export async function generateMetadata({
   if (!store) return {}
 
   const faviconUrl = store.faviconUrl ?? '/favicon.png'
-  const title = store.storeName ?? store.organizationName
+  const title = storeDisplayName(store)
 
-  const description =
-    store.heroSubtitle?.trim() || `Comprá online en ${title}: catálogo, precios y envíos.`
+  const description = metaDescription(
+    store.heroSubtitle?.trim() || `Comprá online en ${title}: catálogo, precios y envíos.`,
+  )
 
   // Sin canonical acá: este layout envuelve también /productos y cada producto, y un canonical
   // heredado los marcaría a todos como duplicados de la portada de la tienda.
