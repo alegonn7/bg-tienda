@@ -1,6 +1,13 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getAuthUser, getCurrentOrgForAdmin } from '@/lib/tenant'
 import { LogoutButton } from '@/components/admin/logout-button'
+
+// El panel no tiene nada para buscadores (y robots.ts ya lo excluye); noindex por si algún link
+// externo lo expone igual.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+}
 
 export default async function AdminLayout({
   children,

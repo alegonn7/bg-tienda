@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata } from 'next'
 import { DM_Sans, Geist_Mono } from 'next/font/google'
+import { SITE_URL } from '@/lib/site-config'
 import './globals.css'
 
 const dmSans = DM_Sans({
@@ -17,9 +18,13 @@ const geistMono = Geist_Mono({
 // que la sobreescribe. Esto queda como fallback neutro para /admin y para el caso de una URL
 // sin slug. El ícono default sale de app/icon.png (convención de archivo de Next — no se
 // declara acá a mano para no pisarse con la generación automática de /favicon.ico).
+// metadataBase hace que las URLs relativas de canonical/Open Graph (acá, en la landing y en cada
+// tienda) se publiquen absolutas, que es lo que piden Google y las redes sociales.
 export const metadata: Metadata = {
-  title: 'bg-tienda',
-  description: 'Tiendas online de bg-tienda.',
+  metadataBase: new URL(SITE_URL),
+  title: 'BG Tienda',
+  description: 'Tiendas online conectadas al stock de tu negocio.',
+  applicationName: 'BG Tienda',
 }
 
 export default function RootLayout({

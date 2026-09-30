@@ -26,11 +26,25 @@ export async function generateMetadata({
   const faviconUrl = store.faviconUrl ?? '/favicon.png'
   const title = store.storeName ?? store.organizationName
 
+  const description =
+    store.heroSubtitle?.trim() || `Comprá online en ${title}: catálogo, precios y envíos.`
+
+  // Sin canonical acá: este layout envuelve también /productos y cada producto, y un canonical
+  // heredado los marcaría a todos como duplicados de la portada de la tienda.
   return {
     title,
+    description,
     icons: {
       icon: faviconUrl,
       apple: faviconUrl,
+    },
+    openGraph: {
+      title,
+      description,
+      siteName: title,
+      type: 'website',
+      locale: 'es_AR',
+      ...(store.logoUrl ? { images: [{ url: store.logoUrl, alt: title }] } : {}),
     },
   }
 }
