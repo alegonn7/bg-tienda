@@ -9,6 +9,7 @@ export type Product = {
   featured: boolean
   created_at: string
   price: number | null
+  cost?: number | null
   stock: number | null
   productBranchId?: string
   branchActive?: boolean

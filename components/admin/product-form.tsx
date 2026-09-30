@@ -29,6 +29,7 @@ export function ProductForm({ product, categories, sizes: availableSizes, organi
   const [sizes, setSizes] = useState<string[]>(product?.sizes ?? [])
   const [active, setActive] = useState(product?.active ?? true)
   const [price, setPrice] = useState(product?.price?.toString() ?? '0')
+  const [cost, setCost] = useState(product?.cost?.toString() ?? '0')
   const [stock, setStock] = useState(product?.stock?.toString() ?? '0')
   const [weightGrams, setWeightGrams] = useState(product?.weightGrams?.toString() ?? '')
   const [lengthCm, setLengthCm] = useState(product?.lengthCm?.toString() ?? '')
@@ -93,6 +94,7 @@ export function ProductForm({ product, categories, sizes: availableSizes, organi
         sizes,
         active,
         price: Number(price) || 0,
+        cost: Number(cost) || 0,
         stock: Number(stock) || 0,
         weightGrams: weightGrams.trim() === '' ? null : Number(weightGrams),
         lengthCm: lengthCm.trim() === '' ? null : Number(lengthCm),
@@ -190,6 +192,23 @@ export function ProductForm({ product, categories, sizes: availableSizes, organi
             className="mt-2 w-full px-4 py-3 text-[15px] outline-none"
             style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
           />
+        </div>
+        <div>
+          <label className="block text-[12px] uppercase" style={{ letterSpacing: '0.06em', color: '#6b6b6b' }}>
+            Costo
+          </label>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={cost}
+            onChange={(e) => setCost(e.target.value)}
+            className="mt-2 w-full px-4 py-3 text-[15px] outline-none"
+            style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
+          />
+          <p className="mt-1 text-[11px]" style={{ color: '#9a9a9a' }}>
+            Lo que te cuesta el producto. No se muestra al cliente; sirve para calcular tu ganancia.
+          </p>
         </div>
         <div>
           <label className="block text-[12px] uppercase" style={{ letterSpacing: '0.06em', color: '#6b6b6b' }}>

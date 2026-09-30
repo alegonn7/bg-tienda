@@ -22,6 +22,7 @@ type ProductData = {
   sizes: string[]
   active: boolean
   price: number
+  cost: number
   stock: number
   weightGrams?: number | null
   lengthCm?: number | null
@@ -58,6 +59,7 @@ export async function createProduct(data: ProductData) {
     product_id: product.id,
     branch_id: ctx.onlineBranchId,
     price_sale: data.price,
+    price_cost: data.cost,
     stock_quantity: data.stock,
     created_by: ctx.userId,
   })
@@ -88,7 +90,7 @@ export async function updateProduct(id: string, productBranchId: string, data: P
 
   const { error: branchError } = await supabase
     .from('products_branch')
-    .update({ price_sale: data.price, stock_quantity: data.stock })
+    .update({ price_sale: data.price, price_cost: data.cost, stock_quantity: data.stock })
     .eq('id', productBranchId)
   if (branchError) throw new Error(branchError.message)
 
