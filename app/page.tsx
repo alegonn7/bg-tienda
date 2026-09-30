@@ -42,6 +42,9 @@ export const metadata: Metadata = {
     'Binary Goats',
   ],
   alternates: { canonical: '/' },
+  // Verificación de Google Search Console (propiedad https://bg-tienda.vercel.app/). No quitarla:
+  // si desaparece, Search Console pierde la verificación.
+  verification: { google: 'ARc41xNQlswsMn701HHZL5Tbi0mWeLebyfUC1q3hkSo' },
   robots: { index: true, follow: true },
   openGraph: {
     title: TITLE,
