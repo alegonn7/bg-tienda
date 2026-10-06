@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentOrgForAdmin } from '@/lib/tenant'
+import { getOrgForAdminRead } from '@/lib/tenant'
 import { getMercadoPagoStatus, getShippingStatus } from '@/app/admin/actions'
 import { MercadoPagoSettingsForm } from '@/components/admin/mercadopago-settings-form'
 import { ShippingSettingsForm } from '@/components/admin/shipping-settings-form'
@@ -13,7 +13,7 @@ export default async function ConfiguracionPage({
 }: {
   searchParams: Promise<{ mp_connected?: string; mp_error?: string }>
 }) {
-  const ctx = await getCurrentOrgForAdmin()
+  const ctx = await getOrgForAdminRead()
   if (!ctx) notFound()
 
   const { mp_connected, mp_error } = await searchParams
