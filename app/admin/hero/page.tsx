@@ -1,11 +1,11 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentOrgForAdmin } from '@/lib/tenant'
+import { getOrgForAdminRead } from '@/lib/tenant'
 import { HeroManager } from '@/components/admin/hero-manager'
 
 export default async function HeroPage() {
-  const ctx = await getCurrentOrgForAdmin()
+  const ctx = await getOrgForAdminRead()
   if (!ctx) notFound()
 
   const supabase = await createClient()

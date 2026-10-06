@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ProductForm } from '@/components/admin/product-form'
 import { getAdminProduct } from '@/lib/products-server'
-import { getCurrentOrgForAdmin } from '@/lib/tenant'
+import { getOrgForAdminRead } from '@/lib/tenant'
 
 export default async function EditarProductoPage({
   params,
@@ -11,7 +11,7 @@ export default async function EditarProductoPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const ctx = await getCurrentOrgForAdmin()
+  const ctx = await getOrgForAdminRead()
   if (!ctx) notFound()
 
   const supabase = await createClient()

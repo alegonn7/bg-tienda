@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { adminBloqueado, getAuthUser, getAdminOrgWithStatus } from '@/lib/tenant'
+import { getAuthUser, getAdminOrgWithStatus, soloLectura } from '@/lib/tenant'
 import { LogoutButton } from '@/components/admin/logout-button'
+import { ModoLectura } from '@/components/admin/modo-lectura'
 import { MP_SUSCRIPCIONES_URL, SuscripcionResumen, WHATSAPP_SOPORTE_URL } from '@/components/admin/suscripcion-resumen'
 
 // El panel no tiene nada para buscadores (y robots.ts ya lo excluye); noindex por si algún link
@@ -24,7 +25,9 @@ export default async function AdminLayout({
   }
 
   const ctx = await getAdminOrgWithStatus()
-  const bloqueado = !!ctx && adminBloqueado(ctx)
+  // pending: todavía no pagó, solo ve el estado del pago. suspended: panel en modo lectura.
+  const bloqueado = ctx?.subscriptionStatus === 'pending'
+  const lectura = !!ctx && soloLectura(ctx)
 
   return (
     <div style={{ backgroundColor: '#fafaf9', minHeight: '100vh' }}>
@@ -74,7 +77,7 @@ export default async function AdminLayout({
           <span className="text-[13px] break-all" style={{ color: '#6b6b6b' }}>
             {user.email}
           </span>
-          {ctx && !bloqueado && (
+          {ctx && !bloqueado && !lectura && (
             <Link href={`/${ctx.organizationSlug}`} className="text-[13px]" style={{ color: '#6b6b6b' }}>
               Ver tienda →
             </Link>
@@ -88,7 +91,8 @@ export default async function AdminLayout({
         ) : ctx ? (
           <>
             {ctx.subscriptionStatus === 'past_due' && <AvisoPagoAtrasado />}
-            {children}
+            {lectura && <AvisoSuspendida />}
+            <ModoLectura activo={lectura}>{children}</ModoLectura>
           </>
         ) : (
           <div className="mx-auto max-w-[560px] px-4 py-20 text-center sm:px-8">
@@ -106,8 +110,8 @@ export default async function AdminLayout({
   )
 }
 
-// Cuenta que todavía no pagó (pending) o que se suspendió por falta de pago: la tienda pública ya
-// no se ve (vista store_directory) y el panel solo muestra el estado de la suscripción.
+// Cuenta que todavía no pagó (pending): la tienda pública no se ve (vista store_directory) y el
+// panel solo muestra el estado del pago.
 function CuentaBloqueada({
   organizationId,
   subscriptionStatus,
@@ -115,16 +119,14 @@ function CuentaBloqueada({
   organizationId: string
   subscriptionStatus: string | null
 }) {
-  const pendiente = subscriptionStatus === 'pending'
   return (
     <div className="mx-auto max-w-[700px] px-4 py-14 sm:px-8">
       <h1 className="text-[22px] font-medium" style={{ color: '#111111' }}>
-        {pendiente ? 'Todavía no confirmamos tu pago' : 'Tu tienda está suspendida'}
+        Todavía no confirmamos tu pago
       </h1>
       <p className="mt-3 text-[14px]" style={{ color: '#6b6b6b' }}>
-        {pendiente
-          ? 'Apenas Mercado Pago confirme el primer pago, tu tienda se activa sola y vas a poder cargar productos. Si ya pagaste, esperá unos minutos y recargá esta página.'
-          : 'No pudimos cobrar la cuota mensual, así que la tienda dejó de estar online. Tus productos y pedidos siguen guardados: cuando se regularice el pago, todo vuelve como estaba.'}
+        Apenas Mercado Pago confirme el primer pago, tu tienda se activa sola y vas a poder cargar productos. Si ya
+        pagaste, esperá unos minutos y recargá esta página.
       </p>
       <p className="mt-3 text-[14px]" style={{ color: '#6b6b6b' }}>
         Podés revisar tu tarjeta en{' '}
@@ -140,6 +142,24 @@ function CuentaBloqueada({
       <div className="mt-8 p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
         <SuscripcionResumen organizationId={organizationId} subscriptionStatus={subscriptionStatus} />
       </div>
+    </div>
+  )
+}
+
+// Cuenta suspendida (canceló y venció el mes pago, o dejó de pagar): la tienda no se ve y el panel
+// queda en modo lectura hasta que reactive.
+function AvisoSuspendida() {
+  return (
+    <div
+      className="sticky top-0 z-40 px-4 py-3 text-[13px] sm:px-8"
+      style={{ backgroundColor: '#fee2e2', color: '#7f1d1d' }}
+    >
+      Tu suscripción está suspendida y tu tienda no se ve online. Podés mirar todo, pero para volver a editar y
+      publicar tu tienda tenés que{' '}
+      <Link href="/admin/suscripcion" className="font-medium underline">
+        reactivar la suscripción
+      </Link>
+      .
     </div>
   )
 }

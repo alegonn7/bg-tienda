@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { CancelarSuscripcionButton } from '@/components/admin/cancelar-suscripcion-button'
+import { ReactivarSuscripcionButton } from '@/components/admin/reactivar-suscripcion'
 
 // Estado de la suscripción de la tienda a Binary Goats (alta automática desde la landing). Lo leen
 // el dueño y los administradores; las filas las escriben solo las Edge Functions de bg-gestion.
@@ -48,15 +49,22 @@ function finDelPeriodo(pagos: { status: string; debit_date: string | null }[]): 
   return formatFecha(hasta.toISOString())
 }
 
+function mensajeReactivar(estado: string | null, activaHasta: string | null, cuota: number | string) {
+  if (estado !== 'suspended' && activaHasta && new Date(activaHasta).getTime() > Date.now()) {
+    return `Tu tienda sigue activa hasta el ${formatFecha(activaHasta)}. Si reactivás ahora, no se te cobra nada hasta ese día y después sigue ${formatArs(cuota)} por mes.`
+  }
+  return `Reactivá por ${formatArs(cuota)} por mes y tu tienda vuelve a estar online apenas Mercado Pago confirme el pago. Todo lo que tenías cargado sigue ahí.`
+}
+
 export async function SuscripcionResumen({
   organizationId,
   subscriptionStatus,
-  puedeCancelar = false,
+  esDueno = false,
 }: {
   organizationId: string
   subscriptionStatus: string | null
-  // Solo el dueño, y solo desde Mi suscripción (no desde la pantalla de cuenta suspendida).
-  puedeCancelar?: boolean
+  // Cancelar y reactivar: solo el dueño, y solo desde Mi suscripción.
+  esDueno?: boolean
 }) {
   const supabase = await createClient()
   const [{ data: sub }, { data: pagos }, { data: org }] = await Promise.all([
@@ -117,8 +125,11 @@ export async function SuscripcionResumen({
         . Si cancelás, la tienda sigue activa hasta el final del mes que ya pagaste.
       </p>
 
-      {puedeCancelar && !sub.cancelled_at && sub.mp_preapproval_id && (
+      {esDueno && sub.mp_preapproval_id && !sub.cancelled_at && subscriptionStatus !== 'suspended' && (
         <CancelarSuscripcionButton activaHasta={finDelPeriodo(pagos ?? [])} />
+      )}
+      {esDueno && sub.mp_preapproval_id && (sub.cancelled_at || subscriptionStatus === 'suspended') && (
+        <ReactivarSuscripcionButton mensaje={mensajeReactivar(subscriptionStatus, org?.subscription_ends_at ?? null, sub.full_amount)} />
       )}
 
       <h3 className="mt-8 mb-3 text-[14px] font-medium" style={{ color: '#111111' }}>

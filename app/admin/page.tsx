@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { getAdminProducts } from '@/lib/products-server'
-import { getCurrentOrgForAdmin } from '@/lib/tenant'
+import { getOrgForAdminRead } from '@/lib/tenant'
 import { AdminProductTable } from '@/components/admin/admin-product-table'
 
 export default async function AdminPage() {
-  const ctx = await getCurrentOrgForAdmin()
+  const ctx = await getOrgForAdminRead()
   if (!ctx) return null // app/admin/layout.tsx ya no renderiza children en este caso
 
   const products = await getAdminProducts(ctx.onlineBranchId)

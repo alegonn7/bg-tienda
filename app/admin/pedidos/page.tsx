@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentOrgForAdmin } from '@/lib/tenant'
+import { getOrgForAdminRead } from '@/lib/tenant'
 import { PedidosList } from '@/components/admin/pedidos-list'
 
 export default async function PedidosPage() {
-  const ctx = await getCurrentOrgForAdmin()
+  const ctx = await getOrgForAdminRead()
   if (!ctx) notFound()
 
   const supabase = await createClient()

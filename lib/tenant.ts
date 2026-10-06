@@ -169,3 +169,27 @@ export const getCurrentOrgForAdmin = cache(async (): Promise<AdminOrgContext | n
   if (!ctx || adminBloqueado(ctx)) return null
   return ctx
 })
+
+// Organización para LEER el panel: incluye las cuentas suspendidas, que entran en modo lectura
+// (ven sus productos, pedidos y configuración, pero no pueden cambiar nada hasta reactivar). Las
+// pending (todavía no pagaron) no: para ellas el layout solo muestra el estado del pago.
+export const getOrgForAdminRead = cache(async (): Promise<AdminOrgContext | null> => {
+  const ctx = await getAdminOrgWithStatus()
+  if (!ctx || ctx.subscriptionStatus === 'pending') return null
+  return ctx
+})
+
+export function soloLectura(ctx: AdminOrgContext): boolean {
+  return ctx.subscriptionStatus === 'suspended'
+}
+
+// Para los server actions que modifican algo: igual que getCurrentOrgForAdmin, pero con un error
+// que explica por qué no se puede si la cuenta está suspendida.
+export async function getOrgParaEditar(): Promise<AdminOrgContext> {
+  const ctx = await getAdminOrgWithStatus()
+  if (ctx && soloLectura(ctx)) {
+    throw new Error('Tu suscripción está suspendida. Reactivala desde Mi suscripción para volver a editar.')
+  }
+  if (!ctx || adminBloqueado(ctx)) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  return ctx
+}

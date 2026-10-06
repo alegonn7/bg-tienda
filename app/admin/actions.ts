@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentOrgForAdmin } from '@/lib/tenant'
+import { getOrgParaEditar } from '@/lib/tenant'
 import { searchProductImages, translateAndSearchProductImages, type ImageCandidate } from '@/lib/image-search'
 import { invokeMercadoPagoFunction } from '@/lib/mercadopago'
 import { invokeShippingFunction } from '@/lib/shipping'
@@ -31,8 +31,7 @@ type ProductData = {
 }
 
 export async function createProduct(data: ProductData) {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
 
@@ -69,6 +68,7 @@ export async function createProduct(data: ProductData) {
 }
 
 export async function updateProduct(id: string, productBranchId: string, data: ProductData) {
+  await getOrgParaEditar()
   const supabase = await createClient()
 
   const { error } = await supabase
@@ -102,6 +102,7 @@ export async function updateProduct(id: string, productBranchId: string, data: P
 // que deje de aparecer en la tienda. No se borra nada: es reversible (restoreProductToStore) y
 // no arriesga romper un delete real con historial de ventas/movimientos ligados a esa fila.
 export async function removeProductFromStore(productBranchId: string) {
+  await getOrgParaEditar()
   const supabase = await createClient()
   const { error } = await supabase
     .from('products_branch')
@@ -112,6 +113,7 @@ export async function removeProductFromStore(productBranchId: string) {
 }
 
 export async function restoreProductToStore(productBranchId: string) {
+  await getOrgParaEditar()
   const supabase = await createClient()
   const { error } = await supabase
     .from('products_branch')
@@ -122,6 +124,7 @@ export async function restoreProductToStore(productBranchId: string) {
 }
 
 export async function toggleProductFeatured(id: string, featured: boolean) {
+  await getOrgParaEditar()
   const supabase = await createClient()
   const { error } = await supabase.from('products').update({ featured }).eq('id', id)
   if (error) throw new Error(error.message)
@@ -129,6 +132,7 @@ export async function toggleProductFeatured(id: string, featured: boolean) {
 }
 
 export async function toggleProductActive(id: string, active: boolean) {
+  await getOrgParaEditar()
   const supabase = await createClient()
   const { error } = await supabase.from('products').update({ is_active: active }).eq('id', id)
   if (error) throw new Error(error.message)
@@ -137,8 +141,7 @@ export async function toggleProductActive(id: string, active: boolean) {
 
 // Categorías
 export async function createCategory(name: string) {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
   const { error } = await supabase
@@ -150,6 +153,7 @@ export async function createCategory(name: string) {
 }
 
 export async function deleteCategory(id: string) {
+  await getOrgParaEditar()
   const supabase = await createClient()
   const { error } = await supabase.from('categories').delete().eq('id', id)
   if (error) throw new Error(error.message)
@@ -159,8 +163,7 @@ export async function deleteCategory(id: string) {
 
 // Tamaños
 export async function createSize(name: string) {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
   const { error } = await supabase
@@ -171,6 +174,7 @@ export async function createSize(name: string) {
 }
 
 export async function deleteSize(id: string) {
+  await getOrgParaEditar()
   const supabase = await createClient()
   const { error } = await supabase.from('sizes').delete().eq('id', id)
   if (error) throw new Error(error.message)
@@ -181,13 +185,13 @@ export async function deleteSize(id: string) {
 // Las imágenes del banner se suben/insertan desde el cliente (hero-manager.tsx), así que la
 // caché de la tienda hay que invalidarla explícitamente después.
 export async function refreshStorefrontHero() {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
   revalidatePath('/admin/hero')
   revalidateStorefront()
 }
 
 export async function deleteHeroImage(id: string) {
+  await getOrgParaEditar()
   const supabase = await createClient()
   const { error } = await supabase.from('hero_images').delete().eq('id', id)
   if (error) throw new Error(error.message)
@@ -202,6 +206,7 @@ export async function deleteHeroImage(id: string) {
 // tiene. invokeMercadoPagoFunction es solo el wrapper genérico de supabase.functions.invoke, no
 // algo específico de Mercado Pago -- mismo que usa shipping-setup vía invokeShippingFunction.
 export async function confirmOrder(orderId: string) {
+  await getOrgParaEditar()
   const supabase = await createClient()
   await invokeMercadoPagoFunction(supabase, 'confirm-store-order', { storeOrderId: orderId })
   revalidatePath('/admin/pedidos')
@@ -209,6 +214,7 @@ export async function confirmOrder(orderId: string) {
 }
 
 export async function cancelOrder(orderId: string) {
+  await getOrgParaEditar()
   const supabase = await createClient()
   const { error } = await supabase
     .from('store_orders')
@@ -224,6 +230,7 @@ export async function cancelOrder(orderId: string) {
 // — nunca al revés. Puede tardar unos segundos (reintentos con backoff si Mercado Pago no
 // responde a la primera).
 export async function refundOrder(orderId: string, reason?: string) {
+  await getOrgParaEditar()
   const supabase = await createClient()
   await invokeMercadoPagoFunction(supabase, 'mercadopago-refund', { storeOrderId: orderId, reason })
   revalidatePath('/admin/pedidos')
@@ -234,6 +241,7 @@ export async function refundOrder(orderId: string, reason?: string) {
 // al cliente -- todo eso vive en la Edge Function shipping-mark-shipped (necesita el secret de
 // SMTP, que ecomerse no tiene).
 export async function markOrderShipped(orderId: string, trackingCode: string) {
+  await getOrgParaEditar()
   const supabase = await createClient()
   await invokeShippingFunction(supabase, 'shipping-mark-shipped', { storeOrderId: orderId, trackingCode })
   revalidatePath('/admin/pedidos')
@@ -255,8 +263,7 @@ type StoreBrandingData = {
 }
 
 export async function updateStoreBranding(data: StoreBrandingData) {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
   const { error } = await supabase
@@ -285,8 +292,7 @@ export async function updateStoreBranding(data: StoreBrandingData) {
 // generateMetadata (ver app/[slug]/layout.tsx) — no es un único favicon para todo el dominio.
 // Si una tienda no carga uno, cae al default compartido (/favicon.png).
 export async function updateStoreFavicon(faviconUrl: string) {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
   const { error } = await supabase
@@ -304,8 +310,7 @@ export async function updateStoreFavicon(faviconUrl: string) {
 // admin/employee intenta usar esto, el update no matchea ninguna fila y .single() tira
 // error en vez de fallar en silencio.
 export async function updateStoreLogo(logoUrl: string) {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
   const { error } = await supabase
@@ -322,8 +327,7 @@ export async function updateStoreLogo(logoUrl: string) {
 // Cómo se ve la marca en el navbar: tamaño del logo (px) y si se muestra el logo, el nombre,
 // o los dos juntos.
 export async function updateStoreLogoDisplay(data: { logoHeight: number; headerDisplay: string }) {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
   const { error } = await supabase
@@ -338,8 +342,7 @@ export async function updateStoreLogoDisplay(data: { logoHeight: number; headerD
 // Prender/apagar el pedido por WhatsApp -- mismo criterio que Mercado Pago: no toca el número
 // ni la plantilla de mensaje, solo si el botón aparece en la tienda.
 export async function updateWhatsAppOrdersEnabled(enabled: boolean) {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
   const { error } = await supabase
@@ -361,8 +364,7 @@ export async function updateTransferSettings(data: {
   alias: string
   receiptEmail: string
 }) {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
   const { error } = await supabase
@@ -396,8 +398,7 @@ export async function getMercadoPagoStatus() {
 }
 
 export async function updateMercadoPagoSettings(data: { enabled: boolean }) {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
   const { error } = await supabase
@@ -416,6 +417,7 @@ export async function updateMercadoPagoSettings(data: { enabled: boolean }) {
 }
 
 export async function disconnectMercadoPago() {
+  await getOrgParaEditar()
   const supabase = await createClient()
   await invokeMercadoPagoFunction(supabase, 'mercadopago-setup', { action: 'disconnect' })
   revalidatePath('/admin/configuracion')
@@ -452,6 +454,7 @@ export async function saveShippingCredentials(data: {
   displayLabel?: string
   [field: string]: unknown
 }) {
+  await getOrgParaEditar()
   const supabase = await createClient()
   await invokeShippingFunction(supabase, 'shipping-setup', { action: 'save_credentials', ...data })
   revalidatePath('/admin/configuracion')
@@ -459,6 +462,7 @@ export async function saveShippingCredentials(data: {
 }
 
 export async function disconnectShippingCarrier(carrier: 'correo_argentino' | 'andreani') {
+  await getOrgParaEditar()
   const supabase = await createClient()
   await invokeShippingFunction(supabase, 'shipping-setup', { action: 'disconnect', carrier })
   revalidatePath('/admin/configuracion')
@@ -473,6 +477,7 @@ export async function saveShippingOriginAddress(data: {
   province: string
   postalCode: string
 }) {
+  await getOrgParaEditar()
   const supabase = await createClient()
   await invokeShippingFunction(supabase, 'shipping-setup', { action: 'save_origin_address', ...data })
   revalidatePath('/admin/configuracion')
@@ -489,8 +494,7 @@ export async function updateShippingSettings(data: {
   freeShippingThreshold: number | null
   pricingMode: 'carrier' | 'fixed_zones'
 }) {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
   const { error } = await supabase
@@ -523,8 +527,7 @@ export async function updateFixedShippingZones(data: {
   defaultCost: number | null
   zones: { province: string; cost: number }[]
 }) {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
   const { error } = await supabase
@@ -552,8 +555,7 @@ function extensionFromContentType(contentType: string): string {
 }
 
 export async function getImageSuggestions(query: string): Promise<ImageCandidate[]> {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
   return searchProductImages(query)
 }
 
@@ -564,14 +566,12 @@ export async function getImageSuggestions(query: string): Promise<ImageCandidate
 export async function getInitialImageSuggestions(
   productName: string,
 ): Promise<{ query: string; candidates: ImageCandidate[] }> {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
   return translateAndSearchProductImages(productName)
 }
 
 export async function assignProductImage(productId: string, imageUrl: string) {
-  const ctx = await getCurrentOrgForAdmin()
-  if (!ctx) throw new Error('No se pudo resolver tu tienda. Volvé a iniciar sesión.')
+  const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
 

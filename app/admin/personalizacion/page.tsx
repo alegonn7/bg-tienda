@@ -1,13 +1,13 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentOrgForAdmin } from '@/lib/tenant'
+import { getOrgForAdminRead } from '@/lib/tenant'
 import { LogoManager } from '@/components/admin/logo-manager'
 import { FaviconManager } from '@/components/admin/favicon-manager'
 import { StoreBrandingForm } from '@/components/admin/store-branding-form'
 
 export default async function PersonalizacionPage() {
-  const ctx = await getCurrentOrgForAdmin()
+  const ctx = await getOrgForAdminRead()
   if (!ctx) notFound()
 
   const supabase = await createClient()

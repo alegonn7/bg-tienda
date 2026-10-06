@@ -2,8 +2,15 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getAdminOrgWithStatus } from '@/lib/tenant'
 import { SuscripcionResumen } from '@/components/admin/suscripcion-resumen'
+import { SincronizarReactivacion } from '@/components/admin/reactivar-suscripcion'
 
-export default async function SuscripcionPage() {
+export default async function SuscripcionPage({
+  searchParams,
+}: {
+  // ?reactivar=1: vuelta de Mercado Pago después de reactivar (back_url de reactivar-suscripcion).
+  searchParams: Promise<{ reactivar?: string }>
+}) {
+  const { reactivar } = await searchParams
   // Sin filtro de estado: también la ve (desde el layout) una cuenta suspendida.
   const ctx = await getAdminOrgWithStatus()
   if (!ctx) notFound()
@@ -19,11 +26,13 @@ export default async function SuscripcionPage() {
         </h1>
       </div>
 
+      {reactivar && ctx.role === 'owner' && <SincronizarReactivacion />}
+
       <div className="p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
         <SuscripcionResumen
           organizationId={ctx.organizationId}
           subscriptionStatus={ctx.subscriptionStatus}
-          puedeCancelar={ctx.role === 'owner'}
+          esDueno={ctx.role === 'owner'}
         />
       </div>
     </div>
