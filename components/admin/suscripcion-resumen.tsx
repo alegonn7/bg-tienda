@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
+import { CancelarSuscripcionButton } from '@/components/admin/cancelar-suscripcion-button'
 
 // Estado de la suscripción de la tienda a Binary Goats (alta automática desde la landing). Lo leen
 // el dueño y los administradores; las filas las escriben solo las Edge Functions de bg-gestion.
 
-// Panel de suscripciones de Mercado Pago del lado del que paga: ahí se cambia la tarjeta o se cancela.
+// Panel de suscripciones de Mercado Pago del lado del que paga: ahí se cambia la tarjeta.
 export const MP_SUSCRIPCIONES_URL = 'https://www.mercadopago.com.ar/subscriptions'
 export const WHATSAPP_SOPORTE_URL = `https://wa.me/542241527649?text=${encodeURIComponent(
   'Hola! Tengo una consulta sobre la suscripción de mi tienda en BG Tienda.',
@@ -37,18 +38,31 @@ function formatFecha(iso: string | null) {
   return new Date(iso).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', dateStyle: 'medium' })
 }
 
+// Hasta cuándo sigue activa si cancela hoy: un mes después del último cobro aprobado (lo mismo que
+// calcula sincronizarSuscripcion en bg-gestion al registrar la cancelación).
+function finDelPeriodo(pagos: { status: string; debit_date: string | null }[]): string | null {
+  const ultimo = pagos.find((p) => p.status === 'approved' && p.debit_date)
+  if (!ultimo?.debit_date) return null
+  const hasta = new Date(ultimo.debit_date)
+  hasta.setMonth(hasta.getMonth() + 1)
+  return formatFecha(hasta.toISOString())
+}
+
 export async function SuscripcionResumen({
   organizationId,
   subscriptionStatus,
+  puedeCancelar = false,
 }: {
   organizationId: string
   subscriptionStatus: string | null
+  // Solo el dueño, y solo desde Mi suscripción (no desde la pantalla de cuenta suspendida).
+  puedeCancelar?: boolean
 }) {
   const supabase = await createClient()
   const [{ data: sub }, { data: pagos }, { data: org }] = await Promise.all([
     supabase
       .from('platform_subscriptions')
-      .select('id, current_amount, full_amount, next_payment_date, cancelled_at')
+      .select('id, current_amount, full_amount, next_payment_date, cancelled_at, mp_preapproval_id')
       .eq('organization_id', organizationId)
       .maybeSingle(),
     supabase
@@ -96,12 +110,16 @@ export async function SuscripcionResumen({
       </dl>
 
       <p className="mt-6 text-[13px]" style={{ color: '#6b6b6b' }}>
-        La cuota se cobra sola cada mes con Mercado Pago. Para cambiar la tarjeta o cancelar, entrá a{' '}
+        La cuota se cobra sola cada mes con Mercado Pago. Para cambiar la tarjeta, entrá a{' '}
         <a href={MP_SUSCRIPCIONES_URL} className="underline" target="_blank" rel="noreferrer">
           tus suscripciones en Mercado Pago
         </a>
         . Si cancelás, la tienda sigue activa hasta el final del mes que ya pagaste.
       </p>
+
+      {puedeCancelar && !sub.cancelled_at && sub.mp_preapproval_id && (
+        <CancelarSuscripcionButton activaHasta={finDelPeriodo(pagos ?? [])} />
+      )}
 
       <h3 className="mt-8 mb-3 text-[14px] font-medium" style={{ color: '#111111' }}>
         Pagos

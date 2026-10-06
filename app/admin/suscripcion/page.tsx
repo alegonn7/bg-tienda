@@ -20,7 +20,11 @@ export default async function SuscripcionPage() {
       </div>
 
       <div className="p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
-        <SuscripcionResumen organizationId={ctx.organizationId} subscriptionStatus={ctx.subscriptionStatus} />
+        <SuscripcionResumen
+          organizationId={ctx.organizationId}
+          subscriptionStatus={ctx.subscriptionStatus}
+          puedeCancelar={ctx.role === 'owner'}
+        />
       </div>
     </div>
   )
