@@ -89,6 +89,16 @@ export type AdminOrgContext = {
   storeSettingsId: string
   logoUrl: string | null
   faviconUrl: string | null
+  plan: string
+  // pending (alta automática sin pago confirmado) / trial / active / past_due / suspended
+  subscriptionStatus: string | null
+}
+
+// Estados en los que el panel no deja operar: la cuenta todavía no pagó, o dejó de pagar.
+const ESTADOS_BLOQUEADOS = ['pending', 'suspended']
+
+export function adminBloqueado(ctx: AdminOrgContext): boolean {
+  return ESTADOS_BLOQUEADOS.includes(ctx.subscriptionStatus ?? '')
 }
 
 // Usuario logueado, una sola vez por request (layout, page y server actions comparten el
@@ -103,17 +113,16 @@ export const getAuthUser = cache(async (): Promise<{ id: string; email: string |
 })
 
 // Resuelve la organización del usuario logueado a partir de su sesión (nunca de la URL — ver
-// Fase 04). Devuelve null si no hay sesión, si el usuario no pertenece a ninguna organización,
-// o si su organización no tiene bg-tienda habilitada — en cualquiera de esos casos /admin debe
-// mostrar un estado claro en vez de intentar operar sin organización resuelta.
-export const getCurrentOrgForAdmin = cache(async (): Promise<AdminOrgContext | null> => {
+// Fase 04), sin importar el estado de su suscripción. Solo para el layout del admin, que necesita
+// saber si mostrar la pantalla de cuenta suspendida; todo lo demás usa getCurrentOrgForAdmin.
+export const getAdminOrgWithStatus = cache(async (): Promise<AdminOrgContext | null> => {
   const user = await getAuthUser()
   if (!user) return null
 
   const supabase = await createClient()
   const { data: userRow } = await supabase
     .from('users')
-    .select('id, organization_id, role, organizations(slug, name, logo_url)')
+    .select('id, organization_id, role, organizations(slug, name, logo_url, plan, subscription_status)')
     .eq('auth_id', user.id)
     .maybeSingle()
 
@@ -127,7 +136,13 @@ export const getCurrentOrgForAdmin = cache(async (): Promise<AdminOrgContext | n
 
   if (!storeSettings || !storeSettings.enabled) return null
 
-  const org = userRow.organizations as unknown as { slug: string; name: string; logo_url: string | null } | null
+  const org = userRow.organizations as unknown as {
+    slug: string
+    name: string
+    logo_url: string | null
+    plan: string
+    subscription_status: string | null
+  } | null
 
   return {
     userId: userRow.id,
@@ -140,5 +155,17 @@ export const getCurrentOrgForAdmin = cache(async (): Promise<AdminOrgContext | n
     storeSettingsId: storeSettings.id,
     logoUrl: org?.logo_url ?? null,
     faviconUrl: storeSettings.favicon_url,
+    plan: org?.plan ?? '',
+    subscriptionStatus: org?.subscription_status ?? null,
   }
+})
+
+// Organización del usuario logueado para operar el panel (páginas y server actions). Devuelve
+// null si no hay sesión, si el usuario no pertenece a ninguna organización, si su organización no
+// tiene bg-tienda habilitada, o si la cuenta no pagó (pending) o está suspendida — en cualquiera
+// de esos casos /admin debe mostrar un estado claro en vez de intentar operar.
+export const getCurrentOrgForAdmin = cache(async (): Promise<AdminOrgContext | null> => {
+  const ctx = await getAdminOrgWithStatus()
+  if (!ctx || adminBloqueado(ctx)) return null
+  return ctx
 })
