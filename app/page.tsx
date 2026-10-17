@@ -20,6 +20,11 @@ const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent
   'Hola! Quiero info sobre BG Tienda para mi negocio.',
 )}`
 
+// La compra y la suscripción se hacen siempre en binarygoats.com.ar (crea la cuenta y cobra con
+// Mercado Pago), nunca en este dominio.
+const EMPEZAR_URL = `${BINARY_GOATS_URL}/bg-tienda/empezar`
+const PRECIO_LINEA = 'Primer mes $5.000, después $10.000 por mes. Cancelás cuando quieras.'
+
 const TITLE = 'BG Tienda — Tienda online para tu comercio, conectada a tu stock'
 const DESCRIPTION =
   'Creá la tienda online de tu negocio con tu marca, cobrá con Mercado Pago o transferencia, enviá con Correo Argentino o Andreani y mantené el stock sincronizado con BG Gestión.'
@@ -98,8 +103,8 @@ const features = [
 
 const steps = [
   {
-    title: 'Hablamos',
-    text: 'Nos contás de tu negocio por WhatsApp y damos de alta tu tienda.',
+    title: 'Creás tu cuenta',
+    text: 'Completás el formulario, pagás la suscripción con Mercado Pago y tu tienda queda creada al instante.',
   },
   {
     title: 'La personalizás',
@@ -149,7 +154,7 @@ const faqs = [
   },
   {
     q: '¿Cómo empiezo?',
-    a: 'Escribinos por WhatsApp. Damos de alta tu tienda y te acompañamos en la puesta en marcha hasta que esté lista para vender.',
+    a: 'Tocá "Quiero mi tienda", completá tus datos y pagá la suscripción con Mercado Pago: el primer mes cuesta $5.000 y después $10.000 por mes. La tienda se crea al instante y entrás directo a tu panel. Si tenés dudas, escribinos por WhatsApp.',
   },
 ]
 
@@ -165,8 +170,14 @@ const softwareSchema = {
   inLanguage: 'es-AR',
   image: `${SITE_URL}/og.png`,
   featureList: features.map((f) => f.title),
-  // Sin "offers" ni "review": no publicamos precios ni reseñas en esta página, y marcar datos que
-  // no están visibles (o inventarlos) hace que Google invalide el bloque entero.
+  // Sin "review": no publicamos reseñas, y marcar datos que no están visibles (o inventarlos) hace
+  // que Google invalide el bloque entero.
+  offers: {
+    '@type': 'Offer',
+    price: '10000',
+    priceCurrency: 'ARS',
+    url: EMPEZAR_URL,
+  },
   publisher: {
     '@type': 'Organization',
     name: 'Binary Goats',
@@ -206,16 +217,14 @@ const INK = '#2B2B2B'
 const MUTED = '#5B5B58'
 const SURFACE = '#F0F0EE'
 
-function WhatsAppCta({ children, variant = 'primary' }: { children: React.ReactNode; variant?: 'primary' | 'light' }) {
+function ComprarCta({ children, variant = 'primary' }: { children: React.ReactNode; variant?: 'primary' | 'light' }) {
   const colors =
     variant === 'primary'
       ? 'bg-[#5B67AC] text-[#F0F0EE] hover:bg-[#454F87]'
       : 'bg-[#F0F0EE] text-[#2B2B2B] hover:bg-white'
   return (
     <a
-      href={WHATSAPP_URL}
-      target="_blank"
-      rel="noopener noreferrer"
+      href={EMPEZAR_URL}
       className={`inline-flex items-center justify-center rounded-[10px] px-8 py-4 text-[17px] font-bold transition-colors ${colors}`}
     >
       {children}
@@ -230,7 +239,7 @@ export default function LandingPage() {
       <JsonLd data={faqSchema} />
 
       <header className="mx-auto flex max-w-[1080px] items-center justify-between gap-4 px-6 py-5">
-        <a href="/" className="flex items-center gap-3" aria-label="BG Tienda — inicio">
+        <a href="/" className="flex shrink-0 items-center gap-2 sm:gap-3" aria-label="BG Tienda — inicio">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo-binary-goats.png"
@@ -239,14 +248,21 @@ export default function LandingPage() {
             height={36}
             className="h-9 w-9 rounded-full object-cover"
           />
-          <span className="text-lg font-extrabold tracking-tight">BG Tienda</span>
+          <span className="whitespace-nowrap text-lg font-extrabold tracking-tight">BG Tienda</span>
         </a>
-        <nav aria-label="Secciones" className="flex items-center gap-5 text-[15px] font-semibold" style={{ color: MUTED }}>
+        <nav aria-label="Secciones" className="flex items-center gap-3 text-[14px] font-semibold sm:gap-5 sm:text-[15px]" style={{ color: MUTED }}>
           <a href="#funciones" className="hidden sm:inline hover:underline">Funciones</a>
           <a href="#como-funciona" className="hidden sm:inline hover:underline">Cómo funciona</a>
           <a href="#preguntas" className="hidden sm:inline hover:underline">Preguntas</a>
           <a href="/admin/login" rel="nofollow" className="hover:underline" style={{ color: ACCENT }}>
             Ingresar
+          </a>
+          <a
+            href={EMPEZAR_URL}
+            className="whitespace-nowrap rounded-[8px] px-3 py-2 sm:px-4 text-[14px] font-bold text-[#F0F0EE] transition-colors hover:bg-[#454F87]"
+            style={{ background: ACCENT }}
+          >
+            Crear mi tienda
           </a>
         </nav>
       </header>
@@ -272,7 +288,7 @@ export default function LandingPage() {
             sistema de gestión.
           </p>
           <div className="flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
-            <WhatsAppCta>Quiero mi tienda</WhatsAppCta>
+            <ComprarCta>Quiero mi tienda</ComprarCta>
             <a
               href="#funciones"
               className="inline-flex items-center justify-center rounded-[10px] border-2 px-8 py-[14px] text-[17px] font-bold"
@@ -281,6 +297,9 @@ export default function LandingPage() {
               Ver funciones
             </a>
           </div>
+          <p className="mt-4 text-[14px] font-medium" style={{ color: MUTED }}>
+            {PRECIO_LINEA}
+          </p>
           <ul className="mt-10 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[14px] font-medium" style={{ color: MUTED }}>
             {['Mercado Pago y transferencia', 'Correo Argentino y Andreani', 'Stock en tiempo real'].map((t) => (
               <li key={t} className="flex items-center gap-1.5">
@@ -316,6 +335,12 @@ export default function LandingPage() {
                 </p>
               </article>
             ))}
+          </div>
+          <div className="mt-14 flex flex-col items-center gap-3 text-center">
+            <ComprarCta>Crear mi tienda ahora</ComprarCta>
+            <p className="m-0 text-[14px] font-medium" style={{ color: MUTED }}>
+              {PRECIO_LINEA}
+            </p>
           </div>
         </section>
 
@@ -369,6 +394,9 @@ export default function LandingPage() {
               </li>
             ))}
           </ol>
+          <div className="mt-14 flex justify-center">
+            <ComprarCta>Empezar ahora</ComprarCta>
+          </div>
         </section>
 
         {/* Rubros */}
@@ -419,6 +447,9 @@ export default function LandingPage() {
                 </details>
               ))}
             </div>
+            <div className="mt-10 flex justify-center">
+              <ComprarCta>Quiero mi tienda</ComprarCta>
+            </div>
           </div>
         </section>
 
@@ -428,9 +459,18 @@ export default function LandingPage() {
             className="mx-auto mb-9 max-w-[640px] text-[28px] font-extrabold leading-[1.3] sm:text-[34px]"
             style={{ color: SURFACE }}
           >
-            ¿Tenés un negocio y querés vender online? Hablemos.
+            ¿Tenés un negocio y querés vender online? Creá tu tienda hoy.
           </h2>
-          <WhatsAppCta variant="light">Escribinos por WhatsApp</WhatsAppCta>
+          <ComprarCta variant="light">Crear mi tienda</ComprarCta>
+          <p className="mx-auto mt-4 max-w-[640px] text-[15px] font-medium" style={{ color: SURFACE }}>
+            {PRECIO_LINEA}
+          </p>
+          <p className="mt-6 text-[15px] font-medium" style={{ color: SURFACE }}>
+            ¿Tenés dudas?{' '}
+            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-bold underline hover:no-underline">
+              Escribinos por WhatsApp
+            </a>
+          </p>
         </section>
       </main>
 
