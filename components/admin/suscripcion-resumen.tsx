@@ -70,7 +70,7 @@ export async function SuscripcionResumen({
   const [{ data: sub }, { data: pagos }, { data: org }] = await Promise.all([
     supabase
       .from('platform_subscriptions')
-      .select('id, current_amount, full_amount, next_payment_date, cancelled_at, mp_preapproval_id')
+      .select('id, current_amount, full_amount, next_payment_date, cancelled_at, mp_preapproval_id, mp_plan_id')
       .eq('organization_id', organizationId)
       .maybeSingle(),
     supabase
@@ -128,7 +128,8 @@ export async function SuscripcionResumen({
       {esDueno && sub.mp_preapproval_id && !sub.cancelled_at && subscriptionStatus !== 'suspended' && (
         <CancelarSuscripcionButton activaHasta={finDelPeriodo(pagos ?? [])} />
       )}
-      {esDueno && sub.mp_preapproval_id && (sub.cancelled_at || subscriptionStatus === 'suspended') && (
+      {/* Sin mp_preapproval_id pero con plan: un link de reactivación que todavía no se pagó. */}
+      {esDueno && (sub.mp_preapproval_id || sub.mp_plan_id) && (sub.cancelled_at || subscriptionStatus === 'suspended') && (
         <ReactivarSuscripcionButton mensaje={mensajeReactivar(subscriptionStatus, org?.subscription_ends_at ?? null, sub.full_amount)} />
       )}
 
