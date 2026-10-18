@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Search, ShoppingBag, X } from 'lucide-react'
+import { LayoutGrid, Search, ShoppingBag, X } from 'lucide-react'
 import { useCart } from '@/components/cart-context'
 import { BENEFIT_ICONS } from '@/components/store/icons'
-import { categoryLabel } from '@/lib/products'
+import { categoryLabel, normalizeText } from '@/lib/products'
 import { announcements, storeName } from '@/lib/store-info'
 import type { Store } from '@/lib/tenant'
 
@@ -45,6 +45,16 @@ export function Navbar({ store, categories }: { store: Store; categories: string
     ...categories.slice(0, 3).map((c) => ({ href: `${base}/productos?categoria=${encodeURIComponent(c)}`, label: categoryLabel(c), active: false })),
   ]
 
+  // Categorías que coinciden con lo que se escribe: se ofrecen arriba de "buscar productos".
+  const q = normalizeText(term)
+  const catMatches = q ? categories.filter((c) => normalizeText(c).includes(q)).slice(0, 6) : []
+  const catHref = (c: string) => `${base}/productos?categoria=${encodeURIComponent(c)}`
+
+  function goCategory() {
+    setTerm('')
+    setSearchOpen(false)
+  }
+
   function search(e: React.FormEvent) {
     e.preventDefault()
     const q = term.trim()
@@ -79,15 +89,20 @@ export function Navbar({ store, categories }: { store: Store; categories: string
               </Link>
             ))}
           </nav>
-          <form onSubmit={search} className="ml-auto hidden h-[42px] w-full max-w-[320px] items-center gap-2.5 rounded-full px-4 md:flex" style={{ backgroundColor: 'var(--st-sf)' }}>
+          <form onSubmit={search} className="relative ml-auto hidden h-[42px] w-full max-w-[320px] items-center gap-2.5 rounded-full px-4 md:flex" style={{ backgroundColor: 'var(--st-sf)' }}>
             <Search className="h-[18px] w-[18px] flex-shrink-0" style={{ color: 'var(--st-soft)' }} />
             <input
               value={term}
               onChange={(e) => setTerm(e.target.value)}
-              placeholder="Buscar productos…"
-              aria-label="Buscar productos"
+              placeholder="Buscar productos o categorías…"
+              aria-label="Buscar productos o categorías"
               className="min-w-0 flex-1 bg-transparent text-[14px] outline-none"
             />
+            {catMatches.length > 0 && (
+              <div className="absolute inset-x-0 top-[48px] z-50 overflow-hidden rounded-2xl border bg-white py-1.5 shadow-lg" style={{ borderColor: 'var(--st-line2)' }}>
+                <CategorySuggestions items={catMatches} href={catHref} onPick={goCategory} />
+              </div>
+            )}
           </form>
           <button type="button" onClick={() => setSearchOpen((o) => !o)} aria-label="Buscar" className="grid h-10 w-10 place-items-center rounded-full md:hidden">
             {searchOpen ? <X className="h-[21px] w-[21px]" /> : <Search className="h-[21px] w-[21px]" />}
@@ -109,14 +124,46 @@ export function Navbar({ store, categories }: { store: Store; categories: string
                 autoFocus
                 value={term}
                 onChange={(e) => setTerm(e.target.value)}
-                placeholder="Buscar productos…"
-                aria-label="Buscar productos"
+                placeholder="Buscar productos o categorías…"
+                aria-label="Buscar productos o categorías"
                 className="min-w-0 flex-1 bg-transparent text-[16px] outline-none"
               />
             </div>
+            {catMatches.length > 0 ? (
+              <div className="mt-1.5">
+                <CategorySuggestions items={catMatches} href={catHref} onPick={goCategory} />
+              </div>
+            ) : (
+              !q &&
+              categories.length > 0 && (
+                <div className="st-noscroll -mx-4 mt-2.5 flex gap-2 overflow-x-auto px-4">
+                  {categories.map((c) => (
+                    <Link key={c} href={catHref(c)} onClick={goCategory} className="st-chip !h-9 flex-shrink-0 !text-[13px]">
+                      {categoryLabel(c)}
+                    </Link>
+                  ))}
+                </div>
+              )
+            )}
           </form>
         )}
       </header>
+    </>
+  )
+}
+
+function CategorySuggestions({ items, href, onPick }: { items: string[]; href: (c: string) => string; onPick: () => void }) {
+  return (
+    <>
+      <p className="px-4 pb-1 pt-1.5 text-[12px] font-semibold uppercase tracking-[0.06em]" style={{ color: 'var(--st-soft)' }}>
+        Categorías
+      </p>
+      {items.map((c) => (
+        <Link key={c} href={href(c)} onClick={onPick} className="flex items-center gap-2.5 px-4 py-2 text-[15px] hover:bg-[var(--st-sf)]">
+          <LayoutGrid className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--st-soft)' }} />
+          {categoryLabel(c)}
+        </Link>
+      ))}
     </>
   )
 }
