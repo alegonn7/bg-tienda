@@ -1,68 +1,40 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { X, Minus, Plus } from 'lucide-react'
-import {
-  useCart,
-  buildWhatsAppLink,
-  type CartItem,
-} from '@/components/cart-context'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { ArrowRight, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
+import { useCart, buildWhatsAppLink, type CartItem } from '@/components/cart-context'
+import { WhatsAppIcon } from '@/components/store/icons'
 import { productImage } from '@/lib/products'
-import type { Store } from '@/lib/tenant'
-import { createPendingOrder, createMercadoPagoCheckout } from '@/app/[slug]/actions'
 import { formatPrice } from '@/lib/format'
+import { canPayOnline, storeName } from '@/lib/store-info'
+import type { Store } from '@/lib/tenant'
+import { createPendingOrder } from '@/app/[slug]/actions'
 
 export function CartDrawer({ store }: { store: Store }) {
-  const router = useRouter()
-  const { items, isOpen, closeCart, removeItem, updateQuantity } = useCart()
-  const brandName = store.storeName ?? store.organizationName
+  const { items, isOpen, closeCart, removeItem, updateQuantity, totalCount } = useCart()
   const [sending, setSending] = useState(false)
-  const [mpSending, setMpSending] = useState(false)
-  const [mpError, setMpError] = useState('')
-  const [mpEmail, setMpEmail] = useState('')
   const subtotal = items.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0)
+  const online = canPayOnline(store)
+  const canWhatsApp = store.whatsappOrdersEnabled && !!store.whatsappNumber
 
-  async function handleCheckout() {
+  useEffect(() => {
+    if (!isOpen) return
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeCart()
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [isOpen, closeCart])
+
+  async function orderByWhatsApp() {
     setSending(true)
-    // Si falla la creación del pedido rastreado, igual dejamos pasar a WhatsApp — ver
-    // createPendingOrder: el canal principal (WhatsApp) no debe depender de esto.
+    // Si falla el registro del pedido igual se abre WhatsApp: es el canal principal.
     await createPendingOrder(store.organizationId, store.branchId, items)
-    window.open(buildWhatsAppLink(items, store.whatsappNumber ?? '', brandName), '_blank', 'noreferrer')
+    window.open(buildWhatsAppLink(items, store.whatsappNumber ?? '', storeName(store)), '_blank', 'noreferrer')
     setSending(false)
-  }
-
-  // Si la tienda activó envío calculado, o si hay más de un método de pago para elegir (Mercado
-  // Pago y/o transferencia), hace falta la página completa (/[slug]/checkout) -- ahí se pide
-  // dirección y/o se elige método. Si la tienda solo tiene Mercado Pago sin envío, el botón
-  // sigue funcionando exactamente igual que antes de que existieran estos features: pago
-  // directo sin pedir nada más.
-  function handlePayClick() {
-    if (store.shippingEnabled || store.transferEnabled) {
-      router.push(`/${store.slug}/checkout`)
-      return
-    }
-    payWithMercadoPago()
-  }
-
-  // A diferencia de WhatsApp, si esto falla no hay canal de respaldo — el error se muestra
-  // inline. window.location.href (no window.open) porque es una navegación real a pagar.
-  async function payWithMercadoPago() {
-    setMpSending(true)
-    setMpError('')
-    try {
-      const { checkoutUrl } = await createMercadoPagoCheckout(
-        store.organizationId,
-        store.branchId,
-        store.slug,
-        items.map((item) => ({ productId: item.product.id, size: item.size, quantity: item.quantity })),
-        { method: 'pickup', customerEmail: mpEmail },
-      )
-      window.location.href = checkoutUrl
-    } catch (err) {
-      setMpError(err instanceof Error ? err.message : 'No se pudo iniciar el pago')
-      setMpSending(false)
-    }
   }
 
   return (
@@ -70,130 +42,90 @@ export function CartDrawer({ store }: { store: Store }) {
       <div
         aria-hidden={!isOpen}
         onClick={closeCart}
-        className={`fixed inset-0 z-50 transition-opacity duration-200 ${
-          isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
-        }`}
-        style={{ backgroundColor: 'rgba(17,17,17,0.25)' }}
+        className={`fixed inset-0 z-50 transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        style={{ backgroundColor: 'rgba(15,15,15,.42)' }}
       />
       <aside
         role="dialog"
         aria-label="Carrito"
         aria-modal="true"
-        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-[400px] flex-col transition-transform duration-200 ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-        style={{
-          backgroundColor: '#ffffff',
-          borderLeft: '1px solid #e5e5e5',
-        }}
+        aria-hidden={!isOpen}
+        className={`fixed right-0 top-0 z-50 flex h-full w-full flex-col bg-white transition-transform duration-200 md:w-[440px] ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        style={{ boxShadow: isOpen ? '-12px 0 40px rgba(0,0,0,.12)' : 'none' }}
       >
-        <div
-          className="flex items-center justify-between px-6 py-5"
-          style={{ borderBottom: '1px solid #e5e5e5' }}
-        >
-          <h2 className="text-[18px] font-medium" style={{ color: '#111111' }}>
-            Carrito
+        <div className="flex items-center justify-between border-b px-4 py-3.5 md:px-6 md:py-5" style={{ borderColor: 'var(--st-line2)' }}>
+          <h2 className="text-[19px] font-bold">
+            Tu carrito{' '}
+            {totalCount > 0 && (
+              <small className="text-[15px] font-medium" style={{ color: 'var(--st-mut)' }}>
+                ({totalCount})
+              </small>
+            )}
           </h2>
-          <button
-            type="button"
-            onClick={closeCart}
-            aria-label="Cerrar carrito"
-            style={{ color: '#111111' }}
-          >
-            <X size={20} strokeWidth={1.5} />
+          <button type="button" onClick={closeCart} aria-label="Cerrar carrito" className="grid h-9 w-9 place-items-center">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          {items.length === 0 ? (
-            <div className="flex h-full items-center justify-center px-6">
-              <p className="text-[14px]" style={{ color: '#6b6b6b' }}>
-                Tu carrito está vacío
-              </p>
-            </div>
-          ) : (
-            <ul>
+        {items.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+            <span className="grid h-14 w-14 place-items-center rounded-full" style={{ backgroundColor: 'var(--st-sf)' }}>
+              <ShoppingBag className="h-6 w-6" />
+            </span>
+            <p className="font-semibold">Tu carrito está vacío</p>
+            <Link href={`/${store.slug}/productos`} onClick={closeCart} className="st-btn st-btn-sm mt-1">
+              Ver productos
+            </Link>
+          </div>
+        ) : (
+          <>
+            <ul className="flex-1 overflow-y-auto px-4 py-1 md:px-6">
               {items.map((item) => (
                 <CartRow
                   key={item.key}
                   item={item}
+                  slug={store.slug}
                   showPrices={store.showPrices}
+                  onNavigate={closeCart}
                   onRemove={() => removeItem(item.key)}
                   onDec={() => updateQuantity(item.key, item.quantity - 1)}
                   onInc={() => updateQuantity(item.key, item.quantity + 1)}
                 />
               ))}
             </ul>
-          )}
-        </div>
 
-        {items.length > 0 && (
-          <div
-            className="px-6 py-5"
-            style={{ borderTop: '1px solid #e5e5e5' }}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-[14px]" style={{ color: '#6b6b6b' }}>
-                Subtotal
-              </span>
-              <span
-                className="text-[14px] font-medium"
-                style={{ color: '#111111' }}
-              >
-                {store.showPrices ? formatPrice(subtotal) : 'A confirmar'}
-              </span>
-            </div>
-            {store.whatsappOrdersEnabled && (
-              <>
-                <button
-                  type="button"
-                  onClick={handleCheckout}
-                  disabled={sending}
-                  className="pc-btn w-full px-4 py-3 text-[14px] disabled:opacity-60"
-                >
-                  {sending ? 'Enviando pedido...' : 'Consultar por WhatsApp →'}
+            <div className="grid gap-2.5 border-t px-4 pb-[18px] pt-3.5 md:px-6 md:pb-[22px] md:pt-[18px]" style={{ borderColor: 'var(--st-line)' }}>
+              <div className="flex justify-between text-[14px]" style={{ color: 'var(--st-mut)' }}>
+                <span>Subtotal</span>
+                <span className="font-semibold" style={{ color: 'var(--st-ink)' }}>
+                  {store.showPrices ? formatPrice(subtotal) : 'A confirmar'}
+                </span>
+              </div>
+              {online && store.shippingEnabled && (
+                <div className="flex justify-between text-[14px]" style={{ color: 'var(--st-mut)' }}>
+                  <span>Envío</span>
+                  <span>Se calcula al finalizar</span>
+                </div>
+              )}
+              {online && (
+                <Link href={`/${store.slug}/checkout`} onClick={closeCart} className="st-btn st-btn-pri st-btn-lg w-full">
+                  Finalizar compra
+                  <ArrowRight />
+                </Link>
+              )}
+              {canWhatsApp && (
+                <button type="button" onClick={orderByWhatsApp} disabled={sending} className={`st-btn st-btn-wa w-full ${online ? '' : 'st-btn-lg'}`}>
+                  <WhatsAppIcon />
+                  {sending ? 'Abriendo WhatsApp…' : 'Pedir por WhatsApp'}
                 </button>
-                <p className="mt-3 text-[12px]" style={{ color: '#6b6b6b' }}>
-                  Nos contactamos para confirmar tu pedido y acordar el diseño.
+              )}
+              {!online && canWhatsApp && (
+                <p className="text-center text-[12px]" style={{ color: 'var(--st-mut)' }}>
+                  Te contactamos para confirmar el pedido, el pago y la entrega.
                 </p>
-              </>
-            )}
-            {(store.mercadopagoAvailable || store.transferEnabled) && (
-              <>
-                {/* Solo acá: si hace falta la página completa (envío y/o elegir método), esta
-                    manda a /checkout, que ya tiene su propio campo de email en el formulario. */}
-                {!store.shippingEnabled && !store.transferEnabled && (
-                  <input
-                    type="email"
-                    value={mpEmail}
-                    onChange={(e) => setMpEmail(e.target.value)}
-                    placeholder="Tu email (para mandarte el comprobante)"
-                    required
-                    className="mt-3 w-full px-4 py-3 text-[14px] outline-none"
-                    style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff', color: '#111111' }}
-                  />
-                )}
-                <button
-                  type="button"
-                  onClick={handlePayClick}
-                  disabled={mpSending || (!store.shippingEnabled && !store.transferEnabled && !mpEmail)}
-                  className="mt-3 w-full px-4 py-3 text-[14px] disabled:opacity-60"
-                  style={{ border: '1px solid #111111', color: '#111111', backgroundColor: '#fff' }}
-                >
-                  {mpSending
-                    ? 'Redirigiendo a Mercado Pago...'
-                    : store.shippingEnabled || store.transferEnabled
-                      ? 'Pagar online →'
-                      : 'Pagar con Mercado Pago →'}
-                </button>
-                {mpError && (
-                  <p className="mt-2 text-[12px]" style={{ color: '#d81b8a' }}>
-                    {mpError}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
+              )}
+            </div>
+          </>
         )}
       </aside>
     </>
@@ -202,85 +134,52 @@ export function CartDrawer({ store }: { store: Store }) {
 
 function CartRow({
   item,
+  slug,
   showPrices,
+  onNavigate,
   onRemove,
   onDec,
   onInc,
 }: {
   item: CartItem
+  slug: string
   showPrices: boolean
+  onNavigate: () => void
   onRemove: () => void
   onDec: () => void
   onInc: () => void
 }) {
+  const href = `/${slug}/productos/${item.product.id}`
   return (
-    <li
-      className="flex gap-4 px-6 py-5"
-      style={{ borderBottom: '1px solid #e5e5e5' }}
-    >
-      <div
-        className="h-16 w-16 flex-shrink-0 overflow-hidden"
-        style={{ backgroundColor: '#f5f5f3' }}
-      >
+    <li className="grid grid-cols-[76px_1fr_auto] gap-3.5 border-b py-4" style={{ borderColor: 'var(--st-line2)' }}>
+      <Link href={href} onClick={onNavigate} className="h-[94px] w-[76px] overflow-hidden rounded-xl" style={{ backgroundColor: 'var(--st-sf)' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={productImage(item.product) || '/placeholder.jpg'}
-          alt={item.product.name}
-          className="h-full w-full object-cover"
-        />
-      </div>
-      <div className="flex flex-1 flex-col">
-        <div className="flex items-start justify-between gap-2">
-          <p
-            className="text-[15px] font-medium leading-snug"
-            style={{ color: '#111111' }}
-          >
-            {item.product.name}
+        <img src={productImage(item.product)} alt={item.product.name} className="h-full w-full object-cover" />
+      </Link>
+      <div className="min-w-0">
+        <Link href={href} onClick={onNavigate} className="block text-[15px] font-medium leading-[1.3]">
+          {item.product.name}
+        </Link>
+        {item.size && (
+          <p className="mt-0.5 text-[13px]" style={{ color: 'var(--st-mut)' }}>
+            Talle {item.size}
           </p>
-          <button
-            type="button"
-            onClick={onRemove}
-            aria-label="Quitar"
-            className="text-[13px] leading-none"
-            style={{ color: '#6b6b6b' }}
-          >
-            ×
+        )}
+        <div className="mt-2.5 inline-flex h-[34px] items-center rounded-full border px-1" style={{ borderColor: 'var(--st-line)' }}>
+          <button type="button" onClick={onDec} disabled={item.quantity <= 1} aria-label="Uno menos" className="grid h-7 w-7 place-items-center">
+            <Minus className="h-[15px] w-[15px]" />
+          </button>
+          <span className="w-[22px] text-center text-[14px] font-semibold">{item.quantity}</span>
+          <button type="button" onClick={onInc} aria-label="Uno más" className="grid h-7 w-7 place-items-center">
+            <Plus className="h-[15px] w-[15px]" />
           </button>
         </div>
-        <p className="mt-1 text-[13px]" style={{ color: '#6b6b6b' }}>
-          {item.product.category}{item.size ? ` · ${item.size}` : ''}
-          {showPrices && item.product.price != null ? ` · ${formatPrice(item.product.price)}` : ''}
-        </p>
-        <div className="mt-3 inline-flex w-fit items-center">
-          <button
-            type="button"
-            onClick={onDec}
-            aria-label="Disminuir"
-            className="flex h-8 w-8 items-center justify-center"
-            style={{ border: '1px solid #e5e5e5', color: '#111111' }}
-          >
-            <Minus size={13} strokeWidth={1.5} />
-          </button>
-          <span
-            className="flex h-8 w-10 items-center justify-center text-[14px]"
-            style={{
-              borderTop: '1px solid #e5e5e5',
-              borderBottom: '1px solid #e5e5e5',
-              color: '#111111',
-            }}
-          >
-            {item.quantity}
-          </span>
-          <button
-            type="button"
-            onClick={onInc}
-            aria-label="Aumentar"
-            className="flex h-8 w-8 items-center justify-center"
-            style={{ border: '1px solid #e5e5e5', color: '#111111' }}
-          >
-            <Plus size={13} strokeWidth={1.5} />
-          </button>
-        </div>
+      </div>
+      <div className="flex flex-col items-end justify-between">
+        <b className="text-[15px]">{showPrices && item.product.price != null ? formatPrice(item.product.price * item.quantity) : ''}</b>
+        <button type="button" onClick={onRemove} aria-label={`Quitar ${item.product.name}`} className="grid h-8 w-8 place-items-center" style={{ color: 'var(--st-soft)' }}>
+          <Trash2 className="h-[17px] w-[17px]" />
+        </button>
       </div>
     </li>
   )

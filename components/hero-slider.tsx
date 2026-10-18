@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
+// Fondo de la portada: las imágenes del banner pasan solas cada 5 segundos.
 export function HeroSlider({ images }: { images: string[] }) {
   const [current, setCurrent] = useState(0)
-  // Solo se descargan la imagen visible y la siguiente (precarga para el fade). Antes se pedían
-  // todas juntas al abrir la home, compitiendo con el resto de la página.
+  // Solo se descargan la imagen visible y la siguiente (precarga para el fundido).
   const [loaded, setLoaded] = useState<Set<number>>(() => new Set([0, 1]))
 
   useEffect(() => {
@@ -15,16 +15,14 @@ export function HeroSlider({ images }: { images: string[] }) {
 
   useEffect(() => {
     if (images.length <= 1) return
-    const interval = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % images.length)
-    }, 5000)
+    const interval = setInterval(() => setCurrent((prev) => (prev + 1) % images.length), 5000)
     return () => clearInterval(interval)
   }, [images.length])
 
   if (images.length === 0) return null
 
   return (
-    <div className="absolute inset-0 overflow-hidden">
+    <>
       {images.map((url, i) => (
         <div
           key={url}
@@ -38,26 +36,23 @@ export function HeroSlider({ images }: { images: string[] }) {
           }}
         />
       ))}
-
-
+      {/* Oscurece la foto donde va el texto, para que siempre se lea. */}
+      <div className="absolute inset-0 md:hidden" style={{ background: 'linear-gradient(0deg, rgba(15,10,14,.82) 0%, rgba(15,10,14,.4) 50%, rgba(15,10,14,.1) 100%)' }} />
+      <div className="absolute inset-0 hidden md:block" style={{ background: 'linear-gradient(90deg, rgba(15,10,14,.72) 0%, rgba(15,10,14,.35) 45%, rgba(15,10,14,0) 75%)' }} />
       {images.length > 1 && (
-        <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2">
-          {images.map((_, i) => (
+        <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
+          {images.map((url, i) => (
             <button
-              key={i}
+              key={url}
               type="button"
               onClick={() => setCurrent(i)}
               aria-label={`Imagen ${i + 1}`}
-              className="h-1.5 transition-all duration-300"
-              style={{
-                width: i === current ? '24px' : '8px',
-                backgroundColor: i === current ? '#ffffff' : 'rgba(255,255,255,0.5)',
-                borderRadius: '2px',
-              }}
+              className="h-[7px] rounded-full transition-all duration-300"
+              style={{ width: i === current ? 22 : 7, backgroundColor: i === current ? '#fff' : 'rgba(255,255,255,.55)' }}
             />
           ))}
         </div>
       )}
-    </div>
+    </>
   )
 }

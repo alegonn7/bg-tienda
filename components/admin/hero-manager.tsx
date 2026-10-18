@@ -148,17 +148,17 @@ export function HeroManager({ images: initial, organizationId, storeName, heroTi
       />
 
       <div className="grid gap-4">
-        {/* Vista previa: imita la portada real (caja blanca translúcida centrada sobre la foto). */}
+        {/* Vista previa: imita la portada real (foto oscurecida con el texto a la izquierda). */}
         <div>
           <p className="mb-2 flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--adm-muted)' }}>
             <Eye className="h-3.5 w-3.5" />
             Vista previa
           </p>
           <div
-            className="relative grid aspect-[4/3] place-items-center overflow-hidden rounded-[14px] sm:aspect-[16/9] md:aspect-[16/6]"
-            style={{ backgroundColor: '#ececea', border: '1px solid var(--adm-line)' }}
+            className="relative flex aspect-[4/3] items-end overflow-hidden rounded-[14px] sm:aspect-[16/9] md:aspect-[16/6] md:items-center"
+            style={{ background: 'linear-gradient(135deg, #1d1a22 0%, #2a1a2a 45%, var(--adm-accent) 130%)', border: '1px solid var(--adm-line)' }}
           >
-            {images.map((img, i) => (
+            {images.map((img) => (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 key={img.id}
@@ -168,20 +168,11 @@ export function HeroManager({ images: initial, organizationId, storeName, heroTi
                 style={{ opacity: current?.id === img.id ? 1 : 0 }}
               />
             ))}
-            <div
-              className="relative mx-4 max-w-[560px] px-6 py-6 text-center md:px-10 md:py-9"
-              style={current ? { backgroundColor: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(6px)' } : {}}
-            >
-              <span className="mx-auto mb-4 block h-px w-8" style={{ backgroundColor: 'var(--adm-accent)' }} />
-              <p className="text-balance text-[19px] font-medium leading-[1.1] md:text-[34px]" style={{ color: '#111' }}>
-                {title.trim() || `Bienvenido a ${storeName}`}
-              </p>
-              {subtitle.trim() && (
-                <p className="mx-auto mt-2 max-w-[400px] text-[13px] md:mt-3 md:text-[15px]" style={{ color: '#333' }}>
-                  {subtitle}
-                </p>
-              )}
-              <span className="mt-4 inline-block px-4 py-2 text-[12px] md:mt-6 md:text-[13px]" style={{ backgroundColor: '#fff', border: '1px solid #111', color: '#111' }}>
+            {current && <div className="absolute inset-0" style={{ background: 'linear-gradient(60deg, rgba(15,10,14,.75) 0%, rgba(15,10,14,.35) 50%, rgba(15,10,14,0) 85%)' }} />}
+            <div className="relative max-w-[520px] px-5 pb-8 text-white md:px-10 md:pb-0">
+              <p className="text-balance text-[22px] font-bold leading-[1.08] md:text-[36px]">{title.trim() || `Bienvenido a ${storeName}`}</p>
+              {subtitle.trim() && <p className="mt-2 max-w-[400px] text-[13px] opacity-90 md:text-[15px]">{subtitle}</p>}
+              <span className="mt-4 inline-block rounded-full px-4 py-2 text-[12px] font-semibold md:text-[13px]" style={{ backgroundColor: 'var(--adm-accent)' }}>
                 Ver productos →
               </span>
             </div>

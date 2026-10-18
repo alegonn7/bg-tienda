@@ -127,77 +127,166 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* ---------------------------------------------------------------------------
+   Tienda pública (/[slug]). Todo cuelga de .st (el contenedor de app/[slug]/layout.tsx).
+   --color-accent lo pisa cada tienda con su color.
+   --------------------------------------------------------------------------- */
+/* En @layer components para que las clases de Tailwind de cada elemento (padding, alto…) le ganen. */
 @layer components {
-  .nav-link {
-    position: relative;
-    transition: color 150ms ease;
+  .st {
+    --st-ink: #151515;
+    --st-ink2: #3d3d3d;
+    --st-mut: #6f6f6f;
+    --st-soft: #a3a3a3;
+    --st-line: #e7e5e1;
+    --st-line2: #f0eeea;
+    --st-sf: #f6f5f2;
+    --st-ok: #15803d;
+    --st-ok-soft: #e8f5ec;
+    --st-warn: #b45309;
+    --st-warn-soft: #fef3e2;
+    --st-bad: #c0262d;
+    --st-wa: #1faa53;
+    background: #fff;
+    color: var(--st-ink);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
   }
-  .nav-link::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    bottom: -4px;
-    height: 1px;
-    width: 0;
-    background-color: var(--color-accent);
-    transition: width 150ms ease;
-  }
-  .nav-link:hover {
-    color: #111111;
-  }
-  .nav-link:hover::after {
+  .st-wrap {
     width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 16px;
   }
-
-  .detail-link {
-    transition: color 150ms ease;
+  @media (min-width: 768px) {
+    .st-wrap {
+      padding: 0 40px;
+    }
   }
-  .detail-link:hover {
-    color: #111111;
-    text-decoration: underline;
-    text-decoration-color: var(--color-accent);
-    text-underline-offset: 3px;
-  }
-
-  .pc-btn {
+  .st-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    background-color: #ffffff;
-    color: #111111;
-    border: 1px solid #111111;
-    border-radius: 0;
-    transition: background-color 150ms ease, color 150ms ease;
-    cursor: pointer;
+    gap: 8px;
+    height: 46px;
+    padding: 0 22px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 15px;
+    border: 1.5px solid var(--st-ink);
+    background: #fff;
+    color: var(--st-ink);
+    white-space: nowrap;
+    transition: opacity 150ms ease, background-color 150ms ease, border-color 150ms ease;
   }
-  .pc-btn:hover {
-    background-color: #111111;
-    color: #ffffff;
+  .st-btn svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
   }
-
-  .pc-btn-hero {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #111111;
-    color: #ffffff;
-    border: 1px solid #111111;
-    border-radius: 0;
-    transition: background-color 150ms ease, border-color 150ms ease;
-    cursor: pointer;
+  .st-btn:hover:not(:disabled) {
+    background: var(--st-sf);
   }
-  .pc-btn-hero:hover {
-    background-color: var(--color-accent);
+  .st-btn:disabled {
+    opacity: 0.5;
+  }
+  .st-btn-pri {
+    background: var(--color-accent);
     border-color: var(--color-accent);
+    color: #fff;
   }
-
-  .product-card-bordered {
-    border: 1px solid #e5e5e5;
-    transition: border-color 150ms ease;
+  .st-btn-pri:hover:not(:disabled) {
+    background: var(--color-accent);
+    opacity: 0.9;
   }
-  .product-card-bordered:hover {
-    border-color: #111111;
+  .st-btn-dark {
+    background: var(--st-ink);
+    border-color: var(--st-ink);
+    color: #fff;
+  }
+  .st-btn-dark:hover:not(:disabled) {
+    background: var(--st-ink);
+    opacity: 0.88;
+  }
+  .st-btn-wa {
+    border-color: var(--st-wa);
+    color: #0f7a3a;
+  }
+  .st-btn-wa svg {
+    color: var(--st-wa);
+  }
+  .st-btn-wa:hover:not(:disabled) {
+    background: #effaf3;
+  }
+  .st-btn-ghost {
+    border-color: var(--st-line);
+  }
+  .st-btn-lg {
+    height: 54px;
+    font-size: 16px;
+  }
+  .st-btn-sm {
+    height: 36px;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+  .st-chip {
+    height: 38px;
+    min-width: 44px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--st-line);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 14px;
+    white-space: nowrap;
+    background: #fff;
+    color: var(--st-ink);
+    flex-shrink: 0;
+  }
+  .st-chip[aria-pressed='true'],
+  .st-chip-on {
+    border-color: var(--st-ink);
+    background: var(--st-ink);
+    color: #fff;
+  }
+  .st-input {
+    width: 100%;
+    height: 50px;
+    border: 1px solid var(--st-line);
+    border-radius: 12px;
+    padding: 0 15px;
+    font-size: 16px;
+    color: var(--st-ink);
+    background: #fff;
+    outline: none;
+  }
+  textarea.st-input {
+    height: auto;
+    padding: 12px 15px;
+    resize: none;
+  }
+  .st-input::placeholder {
+    color: var(--st-soft);
+  }
+  .st-input:focus {
+    border-color: var(--st-ink);
+    box-shadow: 0 0 0 3px rgba(21, 21, 21, 0.07);
+  }
+  .st-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--st-ink2);
+    margin-bottom: 6px;
+  }
+  .st-noscroll {
+    scrollbar-width: none;
+  }
+  .st-noscroll::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -217,7 +306,7 @@
   }
 
   /* Los navegadores no le ponen cursor:pointer a <button> por defecto (a diferencia de <a>) --
-     sin esto, cualquier botón que no use la clase .pc-btn (la mayoría del admin y el checkout)
+     sin esto, cualquier botón sin una clase propia de cursor
      mostraba la flecha normal en vez de la manito al pasar el mouse. */
   button:not(:disabled),
   [role='button'],
@@ -234,7 +323,7 @@
 
 /* ---------------------------------------------------------------------------
    Panel de administración (/admin). Todo cuelga de .adm (el contenedor del layout del admin)
-   para no tocar la tienda pública, que tiene su propio lenguaje visual (esquinas rectas).
+   para no tocar la tienda pública, que cuelga de .st.
    --------------------------------------------------------------------------- */
 .adm {
   --adm-bg: #f6f6f4;

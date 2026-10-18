@@ -67,6 +67,7 @@ export default async function StoreLayout({
 
   return (
     <div
+      className="st"
       style={
         store.accentColor
           ? ({ '--color-accent': store.accentColor } as React.CSSProperties)

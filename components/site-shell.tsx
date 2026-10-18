@@ -2,33 +2,28 @@ import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
 import { CartDrawer } from '@/components/cart-drawer'
 import { WhatsAppButton } from '@/components/whatsapp-button'
+import { getStoreCategories } from '@/lib/products-server'
 import type { Store } from '@/lib/tenant'
 
-export function SiteShell({
+export async function SiteShell({
   children,
   store,
+  hasBottomBar = false,
 }: {
   children: React.ReactNode
   store: Store
+  // La página tiene su propia barra fija abajo en el celular (producto): el botón flotante de
+  // WhatsApp se esconde ahí para no taparla.
+  hasBottomBar?: boolean
 }) {
+  const categories = await getStoreCategories(store.organizationId)
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar store={store} />
+      <Navbar store={store} categories={categories.map((c) => c.name)} />
       <main className="flex-1">{children}</main>
-      <Footer store={store} />
+      <Footer store={store} categories={categories.map((c) => c.name)} />
       <CartDrawer store={store} />
-      <WhatsAppButton store={store} />
+      <WhatsAppButton store={store} hideOnMobile={hasBottomBar} />
     </div>
-  )
-}
-
-export function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p
-      className="text-[13px] uppercase"
-      style={{ letterSpacing: '0.08em', color: '#6b6b6b' }}
-    >
-      {children}
-    </p>
   )
 }

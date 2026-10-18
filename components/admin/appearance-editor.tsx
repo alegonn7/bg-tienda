@@ -541,15 +541,18 @@ function StorePreview({
           <Search className="ml-auto h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
           <ShoppingBag className="h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
         </div>
-        <div className="relative grid h-[230px] place-items-center overflow-hidden" style={{ backgroundColor: '#f3f3f1' }}>
+        {/* Igual que la portada de la tienda: foto (o fondo oscuro) con el texto abajo a la izquierda. */}
+        <div className="relative flex h-[230px] items-end overflow-hidden" style={{ background: `linear-gradient(135deg, #1d1a22 0%, #2a1a2a 45%, ${accent} 130%)` }}>
           {heroImage && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(0deg, rgba(15,10,14,.82) 0%, rgba(15,10,14,.4) 50%, rgba(15,10,14,.1) 100%)' }} />
+            </>
           )}
-          <div className="relative mx-5 px-5 py-5 text-center" style={heroImage ? { backgroundColor: 'rgba(255,255,255,.75)', backdropFilter: 'blur(6px)' } : {}}>
-            <span className="mx-auto mb-3 block h-px w-6" style={{ backgroundColor: accent }} />
-            <p className="text-balance text-[19px] font-medium leading-[1.15]">{heroTitle}</p>
-            <span className="mt-3 inline-block px-3 py-1.5 text-[10px]" style={{ border: '1px solid #111', backgroundColor: '#fff' }}>
+          <div className="relative w-full px-4 pb-5 text-white">
+            <p className="text-balance text-[20px] font-bold leading-[1.1]">{heroTitle}</p>
+            <span className="mt-3 block rounded-full py-2 text-center text-[11px] font-semibold" style={{ backgroundColor: accent }}>
               Ver productos →
             </span>
           </div>
@@ -571,7 +574,7 @@ function StorePreview({
         <div className="grid grid-cols-2 gap-2.5 px-4">
           {products.slice(0, 4).map((p, i) => (
             <div key={i} className="min-w-0">
-              <div className="aspect-square overflow-hidden" style={{ backgroundColor: '#f3f3f1' }}>
+              <div className="aspect-[4/5] overflow-hidden rounded-lg" style={{ backgroundColor: '#f3f3f1' }}>
                 {p.image && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.image} alt="" className="h-full w-full object-cover" />

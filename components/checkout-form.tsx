@@ -1,22 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Check, ChevronDown, Lock, ShoppingBag } from 'lucide-react'
 import { useCart } from '@/components/cart-context'
 import { productImage } from '@/lib/products'
 import { formatPrice } from '@/lib/format'
 import type { Store } from '@/lib/tenant'
 import { createMercadoPagoCheckout, createTransferOrder, quoteShipping } from '@/app/[slug]/actions'
 import { ARGENTINA_PROVINCES } from '@/lib/argentina-provinces'
-
-const inputStyle = {
-  border: '1px solid #e5e5e5',
-  backgroundColor: '#fff',
-  color: '#111111',
-} as const
-
-const labelStyle = { letterSpacing: '0.06em', color: '#6b6b6b' } as const
 
 // Comisión fija de la plataforma, la paga el cliente (ver mercadopago-checkout en bg-gestion,
 // que es quien la cobra de verdad vía marketplace_fee -- esto acá es solo para mostrarla antes
@@ -26,18 +19,65 @@ const PLATFORM_FEE_PERCENTAGE = 1
 
 type DeliveryMethod = 'pickup' | 'shipping'
 type PaymentMethod = 'mercadopago' | 'transfer'
-type Step = 'form' | 'review'
+type Quote = { cost: number; originalCost: number; isFree: boolean; estimatedDays: number | null }
+
+function Section({ n, title, aside, children }: { n: number; title: string; aside?: string; children: React.ReactNode }) {
+  return (
+    <section className="border-b pb-7 last:border-b-0 md:pb-[30px] [&:not(:first-child)]:pt-7 md:[&:not(:first-child)]:pt-[30px]" style={{ borderColor: 'var(--st-line2)' }}>
+      <div className="mb-[18px] flex items-center gap-3">
+        <span className="grid h-7 w-7 place-items-center rounded-full text-[13px] font-bold text-white" style={{ backgroundColor: 'var(--st-ink)' }}>
+          {n}
+        </span>
+        <h2 className="text-[18px] font-bold tracking-[-0.01em] md:text-[20px]">{title}</h2>
+        {aside && (
+          <small className="ml-auto text-[13px]" style={{ color: 'var(--st-mut)' }}>
+            {aside}
+          </small>
+        )}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function Option({
+  checked,
+  onSelect,
+  title,
+  text,
+  right,
+  children,
+}: {
+  checked: boolean
+  onSelect: () => void
+  title: React.ReactNode
+  text: string
+  right?: React.ReactNode
+  children?: React.ReactNode
+}) {
+  return (
+    <div className="rounded-[14px] border-[1.5px]" style={{ borderColor: checked ? 'var(--st-ink)' : 'var(--st-line)', backgroundColor: checked ? '#fcfcfb' : '#fff' }}>
+      <button type="button" role="radio" aria-checked={checked} onClick={onSelect} className="flex w-full items-start gap-3.5 px-3.5 py-3.5 text-left md:px-[18px] md:py-4">
+        <span className="mt-px h-5 w-5 flex-shrink-0 rounded-full" style={{ border: checked ? '6px solid var(--st-ink)' : '1.5px solid var(--st-line)' }} />
+        <span className="min-w-0 flex-1">
+          <b className="block text-[15px]">{title}</b>
+          <small className="mt-0.5 block text-[13px]" style={{ color: 'var(--st-mut)' }}>
+            {text}
+          </small>
+        </span>
+        {right}
+      </button>
+      {checked && children && <div className="px-3.5 pb-4 md:pl-[52px] md:pr-[18px]">{children}</div>}
+    </div>
+  )
+}
 
 export function CheckoutForm({ store }: { store: Store }) {
   const router = useRouter()
   const { items } = useCart()
 
-  const [step, setStep] = useState<Step>('form')
-
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
-    store.mercadopagoAvailable ? 'mercadopago' : 'transfer',
-  )
-  const [method, setMethod] = useState<DeliveryMethod>('pickup')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(store.mercadopagoAvailable ? 'mercadopago' : 'transfer')
+  const [method, setMethod] = useState<DeliveryMethod>(store.shippingEnabled ? 'shipping' : 'pickup')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
@@ -51,12 +91,9 @@ export function CheckoutForm({ store }: { store: Store }) {
   const [postalCode, setPostalCode] = useState('')
 
   const [quoting, setQuoting] = useState(false)
-  const [quote, setQuote] = useState<{ cost: number; originalCost: number; isFree: boolean; estimatedDays: number | null } | null>(
-    null,
-  )
+  const [quote, setQuote] = useState<Quote | null>(null)
   const [quoteError, setQuoteError] = useState('')
-
-  const [continueError, setContinueError] = useState('')
+  const [summaryOpen, setSummaryOpen] = useState(false)
   const [paying, setPaying] = useState(false)
   const [error, setError] = useState('')
 
@@ -64,106 +101,68 @@ export function CheckoutForm({ store }: { store: Store }) {
   // La comisión de plataforma solo existe para Mercado Pago -- transferencia no tiene forma de
   // cobrarla, la plata va directo banco a banco.
   const feeAmount = paymentMethod === 'mercadopago' ? Math.round(subtotal * PLATFORM_FEE_PERCENTAGE) / 100 : 0
-  const shippingCost = method === 'shipping' ? quote?.cost ?? 0 : 0
+  const shippingCost = method === 'shipping' ? (quote?.cost ?? 0) : 0
   const total = subtotal + feeAmount + shippingCost
+  const count = items.reduce((n, i) => n + i.quantity, 0)
+  const itemsKey = items.map((i) => `${i.product.id}:${i.quantity}`).join(',')
 
-  function handleMethodChange(next: DeliveryMethod) {
-    setMethod(next)
-    setQuote(null)
-    setQuoteError('')
-  }
+  // El envío se cotiza solo apenas hay código postal y provincia (se recotiza si cambia el carrito).
+  useEffect(() => {
+    if (method !== 'shipping' || postalCode.trim().length < 4 || !province) return
+    let cancelled = false
+    const t = setTimeout(async () => {
+      setQuoting(true)
+      setQuoteError('')
+      try {
+        const result = await quoteShipping(
+          store.organizationId,
+          postalCode.trim(),
+          province,
+          items.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
+        )
+        if (!cancelled) setQuote({ cost: result.cost, originalCost: result.originalCost, isFree: result.isFree, estimatedDays: result.estimatedDays })
+      } catch (err) {
+        if (!cancelled) setQuoteError(err instanceof Error ? err.message : 'No se pudo calcular el envío')
+      } finally {
+        if (!cancelled) setQuoting(false)
+      }
+    }, 500)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [method, postalCode, province, itemsKey, store.organizationId])
 
-  async function handleQuote() {
-    if (!postalCode) return
-    setQuoting(true)
-    setQuoteError('')
-    setQuote(null)
-    try {
-      const result = await quoteShipping(
-        store.organizationId,
-        postalCode,
-        province,
-        items.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
-      )
-      setQuote({ cost: result.cost, originalCost: result.originalCost, isFree: result.isFree, estimatedDays: result.estimatedDays })
-    } catch (err) {
-      setQuoteError(err instanceof Error ? err.message : 'No se pudo calcular el envío')
-    } finally {
-      setQuoting(false)
+  function delivery() {
+    return {
+      method,
+      customerName,
+      customerPhone,
+      customerEmail,
+      customerNote: customerNote || undefined,
+      address: method === 'shipping' ? { street, number, floorApartment: floorApartment || undefined, city, province, postalCode } : undefined,
     }
   }
 
-  // Sin llamada al servidor -- solo valida lo que el form ya requiere y pasa a la revisión.
-  // El pedido recién se crea (y se cobra) cuando se confirma ahí, en handlePay.
-  function handleContinue(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault()
-    setContinueError('')
+    setError('')
     if (method === 'shipping' && !quote) {
-      setContinueError('Calculá el costo de envío antes de continuar.')
+      setError(quoting ? 'Esperá un segundo, estamos calculando el envío.' : 'Completá la provincia y el código postal para calcular el envío.')
       return
     }
-    setStep('review')
-  }
-
-  async function handlePay() {
     setPaying(true)
-    setError('')
+    const cart = items.map((item) => ({ productId: item.product.id, size: item.size, quantity: item.quantity }))
     try {
-      if (method === 'shipping' && !quote) {
-        throw new Error('Calculá el costo de envío antes de pagar.')
+      if (paymentMethod === 'transfer') {
+        // Sin checkout externo: el pedido queda pendiente hasta que el dueño confirme el pago.
+        const { orderId } = await createTransferOrder(store.organizationId, store.branchId, cart, delivery())
+        router.push(`/${store.slug}/pedido/${orderId}`)
+      } else {
+        const { checkoutUrl } = await createMercadoPagoCheckout(store.organizationId, store.branchId, store.slug, cart, delivery())
+        window.location.href = checkoutUrl
       }
-
-      const { checkoutUrl } = await createMercadoPagoCheckout(
-        store.organizationId,
-        store.branchId,
-        store.slug,
-        items.map((item) => ({ productId: item.product.id, size: item.size, quantity: item.quantity })),
-        {
-          method,
-          customerName,
-          customerPhone,
-          customerEmail,
-          customerNote: customerNote || undefined,
-          address:
-            method === 'shipping'
-              ? { street, number, floorApartment: floorApartment || undefined, city, province, postalCode }
-              : undefined,
-        },
-      )
-      window.location.href = checkoutUrl
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo iniciar el pago')
-      setPaying(false)
-    }
-  }
-
-  // A diferencia de Mercado Pago, acá no hay ningún checkout externo -- el pedido queda
-  // "pending" esperando que el dueño confirme el pago a mano al recibir el comprobante.
-  async function handleConfirmTransfer() {
-    setPaying(true)
-    setError('')
-    try {
-      if (method === 'shipping' && !quote) {
-        throw new Error('Calculá el costo de envío antes de confirmar.')
-      }
-
-      const { orderId } = await createTransferOrder(
-        store.organizationId,
-        store.branchId,
-        items.map((item) => ({ productId: item.product.id, size: item.size, quantity: item.quantity })),
-        {
-          method,
-          customerName,
-          customerPhone,
-          customerEmail,
-          customerNote: customerNote || undefined,
-          address:
-            method === 'shipping'
-              ? { street, number, floorApartment: floorApartment || undefined, city, province, postalCode }
-              : undefined,
-        },
-      )
-      router.push(`/${store.slug}/pedido/${orderId}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear el pedido')
       setPaying(false)
@@ -172,448 +171,271 @@ export function CheckoutForm({ store }: { store: Store }) {
 
   if (items.length === 0) {
     return (
-      <div className="py-16 text-center">
-        <p className="text-[14px]" style={{ color: '#6b6b6b' }}>
-          Tu carrito está vacío.
-        </p>
-        <Link href={`/${store.slug}`} className="mt-4 inline-block text-[13px]" style={{ color: '#111111', textDecoration: 'underline' }}>
-          ← Volver a la tienda
+      <div className="st-wrap flex flex-col items-center py-24 text-center">
+        <span className="grid h-14 w-14 place-items-center rounded-full" style={{ backgroundColor: 'var(--st-sf)' }}>
+          <ShoppingBag className="h-6 w-6" />
+        </span>
+        <p className="mt-3 font-semibold">Tu carrito está vacío</p>
+        <Link href={`/${store.slug}/productos`} className="st-btn st-btn-sm mt-4">
+          Ver productos
         </Link>
       </div>
     )
   }
 
-  if (step === 'review') {
-    return (
-      <div className="flex flex-col gap-8">
-        <div>
-          <button
-            type="button"
-            onClick={() => setStep('form')}
-            className="text-[13px]"
-            style={{ color: '#6b6b6b' }}
-          >
-            ← Volver a editar
+  const payLabel = paying
+    ? paymentMethod === 'transfer'
+      ? 'Confirmando…'
+      : 'Te llevamos a Mercado Pago…'
+    : paymentMethod === 'transfer'
+      ? 'Confirmar pedido'
+      : 'Pagar con Mercado Pago'
+
+  const shippingValue =
+    method === 'pickup' ? (
+      <span style={{ color: 'var(--st-ok)' }}>Gratis</span>
+    ) : quote ? (
+      quote.isFree ? (
+        <span style={{ color: 'var(--st-ok)' }}>Gratis</span>
+      ) : (
+        formatPrice(quote.cost)
+      )
+    ) : (
+      <span style={{ color: 'var(--st-mut)' }}>{quoting ? 'Calculando…' : 'Falta tu código postal'}</span>
+    )
+
+  const totals = (
+    <>
+      <div className="flex justify-between py-1 text-[14px]" style={{ color: 'var(--st-mut)' }}>
+        <span>Subtotal</span>
+        <span style={{ color: 'var(--st-ink)' }}>{formatPrice(subtotal)}</span>
+      </div>
+      <div className="flex justify-between py-1 text-[14px]" style={{ color: 'var(--st-mut)' }}>
+        <span>Envío</span>
+        <span style={{ color: 'var(--st-ink)' }}>{shippingValue}</span>
+      </div>
+      {feeAmount > 0 && (
+        <div className="flex justify-between py-1 text-[14px]" style={{ color: 'var(--st-mut)' }}>
+          <span>Servicio Mercado Pago ({PLATFORM_FEE_PERCENTAGE}%)</span>
+          <span style={{ color: 'var(--st-ink)' }}>{formatPrice(feeAmount)}</span>
+        </div>
+      )}
+    </>
+  )
+
+  const itemList = (
+    <ul>
+      {items.map((item) => (
+        <li key={item.key} className="grid grid-cols-[62px_1fr_auto] gap-3.5 border-b py-3.5 last:border-b-0" style={{ borderColor: '#e9e6e1' }}>
+          <span className="relative h-[76px] w-[62px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={productImage(item.product)} alt="" className="h-full w-full rounded-[10px] object-cover" />
+            <em className="absolute -right-[7px] -top-[7px] grid h-[22px] min-w-[22px] place-items-center rounded-full px-1 text-[12px] font-bold not-italic text-white" style={{ backgroundColor: 'var(--st-ink)' }}>
+              {item.quantity}
+            </em>
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[15px] font-medium leading-[1.3]">{item.product.name}</span>
+            {item.size && (
+              <span className="mt-0.5 block text-[13px]" style={{ color: 'var(--st-mut)' }}>
+                Talle {item.size}
+              </span>
+            )}
+          </span>
+          <b className="text-[15px]">{formatPrice((item.product.price ?? 0) * item.quantity)}</b>
+        </li>
+      ))}
+    </ul>
+  )
+
+  return (
+    <form onSubmit={submit} className="st-wrap pb-[120px] md:grid md:grid-cols-[1fr_380px] md:gap-10 md:pb-16 md:pt-9 lg:grid-cols-[1fr_420px] lg:gap-14">
+      <div>
+        {/* Celular: resumen plegable */}
+        <div className="-mx-4 mb-[22px] border-b md:hidden" style={{ backgroundColor: 'var(--st-sf)', borderColor: 'var(--st-line2)' }}>
+          <button type="button" onClick={() => setSummaryOpen((o) => !o)} className="flex w-full items-center gap-2.5 px-4 py-3.5 text-[14px]">
+            <ShoppingBag className="h-4 w-4" />
+            {summaryOpen ? 'Ocultar resumen' : `Ver resumen (${count} ${count === 1 ? 'producto' : 'productos'})`}
+            <ChevronDown className={`h-4 w-4 transition-transform ${summaryOpen ? 'rotate-180' : ''}`} />
+            <b className="ml-auto text-[16px]">{formatPrice(total)}</b>
           </button>
-          <h1 className="mt-3 text-[22px] font-medium" style={{ color: '#111111' }}>
-            Revisá tu pedido
-          </h1>
-        </div>
-
-        <div className="flex flex-col gap-3" style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: '1.5rem' }}>
-          {items.map((item) => (
-            <div key={item.key} className="flex items-center justify-between gap-3">
-              <p className="text-[14px]" style={{ color: '#111111' }}>
-                {item.quantity}× {item.product.name}
-                {item.size ? ` — ${item.size}` : ''}
-              </p>
-              {store.showPrices && (
-                <span className="text-[14px]" style={{ color: '#111111' }}>
-                  {formatPrice((item.product.price ?? 0) * item.quantity)}
-                </span>
-              )}
+          {summaryOpen && (
+            <div className="px-4 pb-4">
+              {itemList}
+              <div className="mt-2 border-t pt-2" style={{ borderColor: '#e3dfd9' }}>
+                {totals}
+              </div>
             </div>
-          ))}
-        </div>
-
-        <div className="text-[13px]" style={{ color: '#6b6b6b' }}>
-          <p className="mb-1 text-[12px] uppercase" style={{ letterSpacing: '0.06em' }}>
-            Contacto
-          </p>
-          <p style={{ color: '#111111' }}>
-            {customerName} — {customerPhone}
-          </p>
-          <p>{customerEmail}</p>
-        </div>
-
-        <div className="text-[13px]" style={{ color: '#6b6b6b' }}>
-          <p className="mb-1 text-[12px] uppercase" style={{ letterSpacing: '0.06em' }}>
-            Entrega
-          </p>
-          {method === 'shipping' ? (
-            <p style={{ color: '#111111' }}>
-              {street} {number}
-              {floorApartment ? `, ${floorApartment}` : ''}, {city}, {province} (CP {postalCode})
-            </p>
-          ) : (
-            <p style={{ color: '#111111' }}>Retira en el local</p>
           )}
-          {customerNote && <p className="mt-1">Nota: {customerNote}</p>}
         </div>
 
-        {store.mercadopagoAvailable && store.transferEnabled && (
-          <div>
-            <label className="block text-[12px] uppercase" style={labelStyle}>
-              Cómo pagás
+        <Section n={1} title="Tus datos">
+          <div className="grid gap-3.5">
+            <div className="grid gap-3.5 md:grid-cols-2">
+              <label>
+                <span className="st-label">Nombre y apellido</span>
+                <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} required autoComplete="name" className="st-input" />
+              </label>
+              <label>
+                <span className="st-label">Teléfono (WhatsApp)</span>
+                <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} required autoComplete="tel" className="st-input" />
+              </label>
+            </div>
+            <label>
+              <span className="st-label">Email</span>
+              <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} required autoComplete="email" className="st-input" />
+              <span className="mt-1.5 block text-[12px]" style={{ color: 'var(--st-mut)' }}>
+                Te mandamos ahí el detalle de tu compra.
+              </span>
             </label>
-            <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('mercadopago')}
-                className="px-4 py-2 text-[13px]"
-                style={{
-                  border: `1px solid ${paymentMethod === 'mercadopago' ? '#111111' : '#e5e5e5'}`,
-                  backgroundColor: paymentMethod === 'mercadopago' ? '#111111' : '#fff',
-                  color: paymentMethod === 'mercadopago' ? '#fff' : '#6b6b6b',
-                }}
-              >
-                Mercado Pago
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('transfer')}
-                className="px-4 py-2 text-[13px]"
-                style={{
-                  border: `1px solid ${paymentMethod === 'transfer' ? '#111111' : '#e5e5e5'}`,
-                  backgroundColor: paymentMethod === 'transfer' ? '#111111' : '#fff',
-                  color: paymentMethod === 'transfer' ? '#fff' : '#6b6b6b',
-                }}
-              >
-                Transferencia
-              </button>
-            </div>
           </div>
-        )}
+        </Section>
 
-        {store.showPrices && (
-          <div className="flex flex-col gap-2" style={{ borderTop: '1px solid #e5e5e5', paddingTop: '1rem' }}>
-            <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
-              <span>Subtotal</span>
-              <span>{formatPrice(subtotal)}</span>
-            </div>
-            {feeAmount > 0 && (
-              <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
-                <span>Comisión de servicio ({PLATFORM_FEE_PERCENTAGE}%)</span>
-                <span>{formatPrice(feeAmount)}</span>
-              </div>
-            )}
-            {method === 'shipping' && (
-              <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
-                <span>Envío</span>
-                <span>
-                  {quote?.isFree ? (
-                    <>
-                      <span style={{ color: '#16a34a' }}>Gratis</span>{' '}
-                      <span style={{ textDecoration: 'line-through' }}>{formatPrice(quote.originalCost)}</span>
-                    </>
-                  ) : (
-                    formatPrice(shippingCost)
+        <Section n={2} title="Entrega">
+          <div className="grid gap-2.5" role="radiogroup" aria-label="Entrega">
+            {store.shippingEnabled && (
+              <Option
+                checked={method === 'shipping'}
+                onSelect={() => setMethod('shipping')}
+                title="Envío a domicilio"
+                text={quote?.estimatedDays ? `Llega en ${quote.estimatedDays} días hábiles aprox.` : 'A todo el país'}
+                right={method === 'shipping' && quote ? <span className="text-[15px] font-bold">{quote.isFree ? <span style={{ color: 'var(--st-ok)' }}>Gratis</span> : formatPrice(quote.cost)}</span> : undefined}
+              >
+                <div className="grid gap-3.5">
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <label>
+                      <span className="st-label">Provincia</span>
+                      <select value={province} onChange={(e) => { setProvince(e.target.value); setQuote(null) }} required className="st-input">
+                        <option value="">Elegí</option>
+                        {ARGENTINA_PROVINCES.map((p) => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span className="st-label">Código postal</span>
+                      <input value={postalCode} onChange={(e) => { setPostalCode(e.target.value); setQuote(null) }} required inputMode="numeric" autoComplete="postal-code" className="st-input" />
+                    </label>
+                  </div>
+                  {quote && (
+                    <p className="flex items-center gap-2 rounded-[10px] px-3.5 py-2.5 text-[14px]" style={{ backgroundColor: 'var(--st-ok-soft)', color: 'var(--st-ok)' }}>
+                      <Check className="h-4 w-4 flex-shrink-0" />
+                      {quote.isFree ? (
+                        <span>
+                          ¡Tu envío es gratis! <s style={{ color: 'var(--st-mut)' }}>{formatPrice(quote.originalCost)}</s>
+                        </span>
+                      ) : (
+                        <span>Envío a {province}: {formatPrice(quote.cost)}</span>
+                      )}
+                    </p>
                   )}
-                </span>
-              </div>
+                  {quoting && <p className="text-[13px]" style={{ color: 'var(--st-mut)' }}>Calculando el envío…</p>}
+                  {quoteError && <p className="text-[13px]" style={{ color: 'var(--st-bad)' }}>{quoteError}</p>}
+                  <div className="grid grid-cols-[1fr_96px] gap-3.5 md:grid-cols-[1fr_120px]">
+                    <label>
+                      <span className="st-label">Calle</span>
+                      <input value={street} onChange={(e) => setStreet(e.target.value)} required autoComplete="address-line1" className="st-input" />
+                    </label>
+                    <label>
+                      <span className="st-label">Número</span>
+                      <input value={number} onChange={(e) => setNumber(e.target.value)} required className="st-input" />
+                    </label>
+                  </div>
+                  <div className="grid gap-3.5 md:grid-cols-2">
+                    <label>
+                      <span className="st-label">Piso / depto (opcional)</span>
+                      <input value={floorApartment} onChange={(e) => setFloorApartment(e.target.value)} autoComplete="address-line2" className="st-input" />
+                    </label>
+                    <label>
+                      <span className="st-label">Localidad</span>
+                      <input value={city} onChange={(e) => setCity(e.target.value)} required autoComplete="address-level2" className="st-input" />
+                    </label>
+                  </div>
+                </div>
+              </Option>
             )}
-            <div className="flex items-center justify-between" style={{ paddingTop: '0.5rem', borderTop: '1px solid #f0f0ee' }}>
-              <span className="text-[14px]" style={{ color: '#6b6b6b' }}>
-                Total
-              </span>
-              <span className="text-[18px] font-medium" style={{ color: '#111111' }}>
-                {formatPrice(total)}
-              </span>
-            </div>
+            <Option
+              checked={method === 'pickup'}
+              onSelect={() => setMethod('pickup')}
+              title="Retiro en el local"
+              text="Te avisamos cuando tu pedido esté listo para retirar"
+              right={<span className="text-[15px] font-bold" style={{ color: 'var(--st-ok)' }}>Gratis</span>}
+            />
           </div>
-        )}
+        </Section>
 
-        {paymentMethod === 'transfer' && (
-          <div className="p-4 text-[13px]" style={{ backgroundColor: '#f5f5f3', color: '#111111' }}>
-            <p className="font-medium">Pagás por transferencia</p>
-            <p className="mt-2" style={{ color: '#6b6b6b' }}>
-              Al confirmar te mostramos el CBU/alias y a qué email mandar el comprobante. El
-              pedido queda a la espera de que confirmemos que nos llegó el pago.
-            </p>
+        <Section n={3} title="Pago">
+          <div className="grid gap-2.5" role="radiogroup" aria-label="Pago">
+            {store.mercadopagoAvailable && (
+              <Option
+                checked={paymentMethod === 'mercadopago'}
+                onSelect={() => setPaymentMethod('mercadopago')}
+                title="Mercado Pago"
+                text="Tarjeta de crédito, débito o dinero en cuenta. Se confirma al instante."
+                right={<span className="whitespace-nowrap text-[13px]" style={{ color: 'var(--st-mut)' }}>+{PLATFORM_FEE_PERCENTAGE}% servicio</span>}
+              />
+            )}
+            {store.transferEnabled && (
+              <Option
+                checked={paymentMethod === 'transfer'}
+                onSelect={() => setPaymentMethod('transfer')}
+                title="Transferencia bancaria"
+                text="Te mostramos el alias al confirmar. Mandás el comprobante y listo."
+              />
+            )}
           </div>
-        )}
+        </Section>
+
+        <Section n={4} title="Nota para la tienda" aside="Opcional">
+          <textarea value={customerNote} onChange={(e) => setCustomerNote(e.target.value)} rows={3} placeholder="Ej: si no estoy, dejalo en portería." className="st-input" />
+        </Section>
 
         {error && (
-          <p className="text-[13px]" style={{ color: '#d81b8a' }}>
+          <p className="mb-4 rounded-[10px] px-3.5 py-2.5 text-[14px] md:hidden" style={{ backgroundColor: '#fdecec', color: 'var(--st-bad)' }}>
             {error}
           </p>
         )}
+      </div>
 
-        {paymentMethod === 'transfer' ? (
-          <button
-            type="button"
-            onClick={handleConfirmTransfer}
-            disabled={paying}
-            className="pc-btn w-full px-4 py-3 text-[14px] disabled:opacity-60"
-          >
-            {paying ? 'Confirmando...' : 'Confirmar pedido →'}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handlePay}
-            disabled={paying}
-            className="pc-btn w-full px-4 py-3 text-[14px] disabled:opacity-60"
-          >
-            {paying ? 'Redirigiendo a Mercado Pago...' : 'Pagar con Mercado Pago →'}
-          </button>
+      {/* Compu: resumen fijo al costado */}
+      <aside className="sticky top-6 hidden self-start rounded-[20px] p-6 md:block" style={{ backgroundColor: 'var(--st-sf)' }}>
+        <h3 className="mb-1.5 text-[17px] font-bold">Tu pedido</h3>
+        {itemList}
+        <div className="mt-3.5 border-t pt-2.5" style={{ borderColor: '#e3dfd9' }}>
+          {totals}
+          <div className="mt-2.5 flex justify-between border-t pt-4 text-[18px] font-bold" style={{ borderColor: '#e3dfd9' }}>
+            <span>Total</span>
+            <span>{formatPrice(total)}</span>
+          </div>
+        </div>
+        {error && (
+          <p className="mt-4 rounded-[10px] px-3.5 py-2.5 text-[14px]" style={{ backgroundColor: '#fdecec', color: 'var(--st-bad)' }}>
+            {error}
+          </p>
         )}
-      </div>
-    )
-  }
-
-  return (
-    <form onSubmit={handleContinue} className="flex flex-col gap-8">
-      <h1 className="text-[22px] font-medium" style={{ color: '#111111' }}>
-        Finalizar compra
-      </h1>
-
-      {/* Resumen del carrito */}
-      <div className="flex flex-col gap-3" style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: '1.5rem' }}>
-        {items.map((item) => (
-          <div key={item.key} className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={productImage(item.product) || '/placeholder.jpg'}
-              alt={item.product.name}
-              className="h-12 w-12 object-cover"
-              style={{ border: '1px solid #e5e5e5' }}
-            />
-            <div className="flex-1">
-              <p className="text-[14px]" style={{ color: '#111111' }}>
-                {item.product.name}
-                {item.size ? ` — ${item.size}` : ''}
-              </p>
-              <p className="text-[12px]" style={{ color: '#6b6b6b' }}>
-                x{item.quantity}
-              </p>
-            </div>
-            {store.showPrices && (
-              <span className="text-[14px]" style={{ color: '#111111' }}>
-                {formatPrice((item.product.price ?? 0) * item.quantity)}
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Datos de contacto */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className="block text-[12px] uppercase" style={labelStyle}>
-            Nombre *
-          </label>
-          <input
-            type="text"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            required
-            className="mt-2 w-full px-4 py-3 text-[15px] outline-none"
-            style={inputStyle}
-          />
-        </div>
-        <div>
-          <label className="block text-[12px] uppercase" style={labelStyle}>
-            Teléfono *
-          </label>
-          <input
-            type="tel"
-            value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
-            required
-            className="mt-2 w-full px-4 py-3 text-[15px] outline-none"
-            style={inputStyle}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="block text-[12px] uppercase" style={labelStyle}>
-            Email *
-          </label>
-          <input
-            type="email"
-            value={customerEmail}
-            onChange={(e) => setCustomerEmail(e.target.value)}
-            required
-            className="mt-2 w-full px-4 py-3 text-[15px] outline-none"
-            style={inputStyle}
-          />
-          <p className="mt-1 text-[12px]" style={{ color: '#6b6b6b' }}>
-            Te mandamos ahí el detalle de tu compra.
-          </p>
-        </div>
-      </div>
-
-      {/* Método de entrega */}
-      <div>
-        <label className="block text-[12px] uppercase" style={labelStyle}>
-          Entrega
-        </label>
-        <div className="mt-2 flex gap-2">
-          <button
-            type="button"
-            onClick={() => handleMethodChange('pickup')}
-            className="px-4 py-2 text-[13px]"
-            style={{
-              border: `1px solid ${method === 'pickup' ? '#111111' : '#e5e5e5'}`,
-              backgroundColor: method === 'pickup' ? '#111111' : '#fff',
-              color: method === 'pickup' ? '#fff' : '#6b6b6b',
-            }}
-          >
-            Retirar en el local — Gratis
-          </button>
-          {store.shippingEnabled && (
-            <button
-              type="button"
-              onClick={() => handleMethodChange('shipping')}
-              className="px-4 py-2 text-[13px]"
-              style={{
-                border: `1px solid ${method === 'shipping' ? '#111111' : '#e5e5e5'}`,
-                backgroundColor: method === 'shipping' ? '#111111' : '#fff',
-                color: method === 'shipping' ? '#fff' : '#6b6b6b',
-              }}
-            >
-              Envío a domicilio
-            </button>
-          )}
-        </div>
-      </div>
-
-      {method === 'shipping' && (
-        <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <input
-              type="text"
-              value={street}
-              onChange={(e) => setStreet(e.target.value)}
-              placeholder="Calle"
-              required
-              className="px-4 py-3 text-[14px] outline-none sm:col-span-2"
-              style={inputStyle}
-            />
-            <input
-              type="text"
-              value={number}
-              onChange={(e) => setNumber(e.target.value)}
-              placeholder="Número"
-              required
-              className="px-4 py-3 text-[14px] outline-none"
-              style={inputStyle}
-            />
-          </div>
-          <input
-            type="text"
-            value={floorApartment}
-            onChange={(e) => setFloorApartment(e.target.value)}
-            placeholder="Piso / depto (opcional)"
-            className="px-4 py-3 text-[14px] outline-none"
-            style={inputStyle}
-          />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <input
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="Localidad"
-              required
-              className="px-4 py-3 text-[14px] outline-none"
-              style={inputStyle}
-            />
-            <select
-              value={province}
-              onChange={(e) => setProvince(e.target.value)}
-              required
-              className="px-4 py-3 text-[14px] outline-none"
-              style={inputStyle}
-            >
-              <option value="">Provincia</option>
-              {ARGENTINA_PROVINCES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              value={postalCode}
-              onChange={(e) => {
-                setPostalCode(e.target.value)
-                setQuote(null)
-              }}
-              placeholder="Código postal"
-              required
-              className="px-4 py-3 text-[14px] outline-none"
-              style={inputStyle}
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={handleQuote}
-            disabled={quoting || !postalCode}
-            className="w-fit px-4 py-2.5 text-[13px] disabled:opacity-60"
-            style={{ border: '1px solid #111111', color: '#111111', backgroundColor: '#fff' }}
-          >
-            {quoting ? 'Calculando...' : 'Calcular envío'}
-          </button>
-
-          {quoteError && (
-            <p className="text-[12px]" style={{ color: '#d81b8a' }}>
-              {quoteError}
-            </p>
-          )}
-          {quote && (
-            <p className="text-[13px]" style={{ color: '#16a34a' }}>
-              Envío:{' '}
-              {quote.isFree ? (
-                <>
-                  Gratis{' '}
-                  <span style={{ color: '#6b6b6b', textDecoration: 'line-through' }}>
-                    {formatPrice(quote.originalCost)}
-                  </span>
-                </>
-              ) : (
-                formatPrice(quote.cost)
-              )}
-              {quote.estimatedDays ? ` — llega en ${quote.estimatedDays} días aprox.` : ''}
-            </p>
-          )}
-        </div>
-      )}
-
-      <div>
-        <label className="block text-[12px] uppercase" style={labelStyle}>
-          Nota (opcional)
-        </label>
-        <textarea
-          value={customerNote}
-          onChange={(e) => setCustomerNote(e.target.value)}
-          rows={2}
-          className="mt-2 w-full resize-none px-4 py-3 text-[15px] outline-none"
-          style={inputStyle}
-        />
-      </div>
-
-      {store.showPrices && (
-        <div className="flex flex-col gap-2" style={{ borderTop: '1px solid #e5e5e5', paddingTop: '1rem' }}>
-          <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
-            <span>Subtotal</span>
-            <span>{formatPrice(subtotal)}</span>
-          </div>
-          {method === 'shipping' && quote && (
-            <div className="flex items-center justify-between text-[13px]" style={{ color: '#6b6b6b' }}>
-              <span>Envío</span>
-              <span>{quote.isFree ? 'Gratis' : formatPrice(shippingCost)}</span>
-            </div>
-          )}
-          <p className="text-[12px]" style={{ color: '#6b6b6b' }}>
-            El total final se ve en el próximo paso, según cómo elijas pagar.
-          </p>
-        </div>
-      )}
-
-      {continueError && (
-        <p className="text-[13px]" style={{ color: '#d81b8a' }}>
-          {continueError}
+        <button type="submit" disabled={paying} className="st-btn st-btn-pri st-btn-lg mt-[18px] w-full">
+          {payLabel}
+        </button>
+        <p className="mt-3 flex items-center justify-center gap-1.5 text-[12px]" style={{ color: 'var(--st-mut)' }}>
+          <Lock className="h-3.5 w-3.5" />
+          {paymentMethod === 'transfer' ? 'Al confirmar te mostramos los datos para transferir' : 'Te llevamos a Mercado Pago para pagar seguro'}
         </p>
-      )}
+      </aside>
 
-      <button
-        type="submit"
-        disabled={method === 'shipping' && !quote}
-        className="pc-btn w-full px-4 py-3 text-[14px] disabled:opacity-60"
-      >
-        Continuar →
-      </button>
+      {/* Celular: total y botón fijos abajo */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-white px-4 pb-3.5 pt-2.5 md:hidden" style={{ borderColor: 'var(--st-line)' }}>
+        <div className="mb-2 flex justify-between text-[13px]" style={{ color: 'var(--st-mut)' }}>
+          <span>{method === 'shipping' ? 'Total con envío' : 'Total'}</span>
+          <b className="text-[16px]" style={{ color: 'var(--st-ink)' }}>
+            {formatPrice(total)}
+          </b>
+        </div>
+        <button type="submit" disabled={paying} className="st-btn st-btn-pri st-btn-lg w-full">
+          {payLabel}
+        </button>
+      </div>
     </form>
   )
 }
