@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Search, ShoppingBag, X } from 'lucide-react'
 import { useCart } from '@/components/cart-context'
 import { BENEFIT_ICONS } from '@/components/store/icons'
+import { categoryLabel } from '@/lib/products'
 import { announcements, storeName } from '@/lib/store-info'
 import type { Store } from '@/lib/tenant'
 
@@ -41,7 +42,7 @@ export function Navbar({ store, categories }: { store: Store; categories: string
   const links = [
     { href: base, label: 'Inicio', active: pathname === base },
     { href: `${base}/productos`, label: 'Productos', active: pathname === `${base}/productos` },
-    ...categories.slice(0, 3).map((c) => ({ href: `${base}/productos?categoria=${encodeURIComponent(c)}`, label: c, active: false })),
+    ...categories.slice(0, 3).map((c) => ({ href: `${base}/productos?categoria=${encodeURIComponent(c)}`, label: categoryLabel(c), active: false })),
   ]
 
   function search(e: React.FormEvent) {

@@ -39,3 +39,11 @@ export const LOW_STOCK = 3
 export function hasDiscount(product: Product): boolean {
   return product.price != null && product.compareAtPrice != null && product.compareAtPrice > product.price
 }
+
+// Muchas tiendas cargan las categorías en MAYÚSCULAS ("CABLES VARIOS"): para mostrarlas se pasan a
+// "Cables varios". El nombre original se sigue usando para filtrar y en la URL.
+export function categoryLabel(name: string): string {
+  if (!name || name !== name.toUpperCase() || !/[A-ZÁÉÍÓÚÑ]{3}/.test(name)) return name
+  const lower = name.toLocaleLowerCase('es')
+  return lower.charAt(0).toLocaleUpperCase('es') + lower.slice(1)
+}

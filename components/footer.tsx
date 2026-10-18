@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { CreditCard, Landmark, MessageCircle } from 'lucide-react'
 import { StoreBrand } from '@/components/navbar'
 import { FacebookIcon, InstagramIcon, WhatsAppIcon } from '@/components/store/icons'
+import { categoryLabel } from '@/lib/products'
 import { paymentLabels, storeName, whatsappUrl } from '@/lib/store-info'
 import type { Store } from '@/lib/tenant'
 
@@ -20,8 +21,8 @@ export function Footer({ store, categories }: { store: Store; categories: string
   return (
     <footer className="mt-12 border-t pb-7 pt-9 text-[14px] md:mt-20 md:pt-[52px]" style={{ borderColor: 'var(--st-line)' }}>
       <div className="st-wrap">
-        <div className="grid grid-cols-2 gap-x-5 gap-y-7 md:grid-cols-[1.4fr_1fr_1.2fr] md:gap-8">
-          <div className="col-span-2 md:col-span-1">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-7 sm:grid-cols-2 md:grid-cols-[1.4fr_1fr_1.2fr] md:gap-8">
+          <div className="sm:col-span-2 md:col-span-1">
             <StoreBrand store={store} compact />
             {store.heroSubtitle && (
               <p className="mt-3 max-w-[300px]" style={{ color: 'var(--st-mut)' }}>
@@ -48,7 +49,7 @@ export function Footer({ store, categories }: { store: Store; categories: string
               </div>
             )}
           </div>
-          <div className={hasContact || pays.length ? '' : 'col-span-2'}>
+          <div className={hasContact || pays.length ? '' : 'sm:col-span-2'}>
             <h4 className="mb-3.5 text-[13px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--st-mut)' }}>
               Tienda
             </h4>
@@ -61,7 +62,7 @@ export function Footer({ store, categories }: { store: Store; categories: string
               {categories.slice(0, 6).map((c) => (
                 <li key={c}>
                   <Link href={`${base}/productos?categoria=${encodeURIComponent(c)}`} className="hover:underline">
-                    {c}
+                    {categoryLabel(c)}
                   </Link>
                 </li>
               ))}
@@ -89,7 +90,7 @@ export function Footer({ store, categories }: { store: Store; categories: string
                     {pays.map((p) => {
                       const Icon = PAY_ICON[p] ?? CreditCard
                       return (
-                        <span key={p} className="inline-flex h-[34px] items-center gap-1.5 rounded-lg border px-3 text-[13px] font-semibold" style={{ borderColor: 'var(--st-line)' }}>
+                        <span key={p} className="inline-flex h-[34px] items-center whitespace-nowrap gap-1.5 rounded-lg border px-3 text-[13px] font-semibold" style={{ borderColor: 'var(--st-line)' }}>
                           <Icon className="h-4 w-4" />
                           {p}
                         </span>

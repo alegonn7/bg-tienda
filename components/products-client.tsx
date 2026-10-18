@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ArrowUpDown, ChevronDown, SlidersHorizontal, X } from 'lucide-react'
 import { ProductCard } from '@/components/product-card'
-import type { Product } from '@/lib/products'
+import { categoryLabel, type Product } from '@/lib/products'
 
 const PAGE_SIZE = 24
 
@@ -149,7 +149,7 @@ export function ProductsClient({
     setVisible(PAGE_SIZE)
   }
 
-  const title = search ? `Resultados para “${search}”` : category || 'Todos los productos'
+  const title = search ? `Resultados para “${search}”` : categoryLabel(category) || 'Todos los productos'
 
   const sizeChips = allSizes.length > 0 && (
     <div className="flex flex-wrap gap-2">
@@ -196,7 +196,7 @@ export function ProductsClient({
         <div className="st-noscroll sticky top-[58px] z-20 -mx-4 flex gap-2 overflow-x-auto border-b bg-white px-4 py-2.5 md:hidden" style={{ borderColor: 'var(--st-line2)' }}>
           {[['', products.length] as [string, number], ...categories].map(([c]) => (
             <button key={c || 'todos'} type="button" aria-pressed={category === c} onClick={() => pickCategory(c)} className="st-chip">
-              {c || 'Todos'}
+              {c ? categoryLabel(c) : 'Todos'}
             </button>
           ))}
         </div>
@@ -233,7 +233,7 @@ export function ProductsClient({
                   className="-mx-2.5 flex w-[calc(100%+20px)] justify-between rounded-[10px] px-2.5 py-[7px] text-left text-[15px]"
                   style={category === c ? { backgroundColor: 'var(--st-sf)', fontWeight: 600 } : { color: 'var(--st-ink2)' }}
                 >
-                  <span className="truncate">{c || 'Todos'}</span>
+                  <span className="truncate">{c ? categoryLabel(c) : 'Todos'}</span>
                   <small style={{ color: 'var(--st-soft)' }}>{n}</small>
                 </button>
               ))}
