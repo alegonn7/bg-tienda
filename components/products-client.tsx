@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { ArrowUpDown, ChevronDown, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowUpDown, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react'
 import { ProductCard } from '@/components/product-card'
-import { categoryLabel, type Product } from '@/lib/products'
+import { categoryLabel, normalizeText, type Product } from '@/lib/products'
 
 const PAGE_SIZE = 24
 
@@ -194,6 +194,11 @@ export function ProductsClient({
       {/* Celular: categorías deslizables + botones de filtros y orden */}
       {categories.length > 1 && (
         <div className="st-noscroll sticky top-[58px] z-20 -mx-4 flex gap-2 overflow-x-auto border-b bg-white px-4 py-2.5 md:hidden" style={{ borderColor: 'var(--st-line2)' }}>
+          {categories.length > CATEGORY_SEARCH_FROM && (
+            <button type="button" onClick={() => setSheet(true)} aria-label="Buscar categoría" className="st-chip !px-3">
+              <Search className="h-4 w-4" />
+            </button>
+          )}
           {[['', products.length] as [string, number], ...categories].map(([c]) => (
             <button key={c || 'todos'} type="button" aria-pressed={category === c} onClick={() => pickCategory(c)} className="st-chip">
               {c ? categoryLabel(c) : 'Todos'}
@@ -225,18 +230,7 @@ export function ProductsClient({
           {categories.length > 1 && (
             <div className="pb-5">
               <h4 className="mb-3 text-[14px] font-bold">Categorías</h4>
-              {[['', products.length] as [string, number], ...categories].map(([c, n]) => (
-                <button
-                  key={c || 'todos'}
-                  type="button"
-                  onClick={() => pickCategory(c)}
-                  className="-mx-2.5 flex w-[calc(100%+20px)] justify-between rounded-[10px] px-2.5 py-[7px] text-left text-[15px]"
-                  style={category === c ? { backgroundColor: 'var(--st-sf)', fontWeight: 600 } : { color: 'var(--st-ink2)' }}
-                >
-                  <span className="truncate">{c ? categoryLabel(c) : 'Todos'}</span>
-                  <small style={{ color: 'var(--st-soft)' }}>{n}</small>
-                </button>
-              ))}
+              <CategoryFilter categories={categories} total={products.length} value={category} onPick={pickCategory} />
             </div>
           )}
           {sizeChips && (
@@ -321,6 +315,12 @@ export function ProductsClient({
               </button>
             </div>
             <div className="overflow-y-auto px-4 py-1.5">
+              {categories.length > 1 && (
+                <div className="border-b py-4" style={{ borderColor: 'var(--st-line2)' }}>
+                  <h4 className="mb-2 text-[14px] font-bold">Categorías</h4>
+                  <CategoryFilter categories={categories} total={products.length} value={category} onPick={pickCategory} />
+                </div>
+              )}
               <div className="py-4">
                 <h4 className="mb-2 text-[14px] font-bold">Ordenar por</h4>
                 {sorts.map((s) => (
@@ -355,5 +355,57 @@ export function ProductsClient({
         </div>
       )}
     </div>
+  )
+}
+
+// Con más de 5 categorías la lista lleva un buscador arriba (sin tildes ni mayúsculas).
+const CATEGORY_SEARCH_FROM = 5
+
+function CategoryFilter({
+  categories,
+  total,
+  value,
+  onPick,
+}: {
+  categories: [string, number][]
+  total: number
+  value: string
+  onPick: (c: string) => void
+}) {
+  const [find, setFind] = useState('')
+  const q = normalizeText(find)
+  const list = q ? categories.filter(([c]) => normalizeText(c).includes(q)) : categories
+  return (
+    <>
+      {categories.length > CATEGORY_SEARCH_FROM && (
+        <label className="relative mb-2 block">
+          <span className="sr-only">Buscar categoría</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--st-soft)' }} />
+          <input
+            value={find}
+            onChange={(e) => setFind(e.target.value)}
+            placeholder="Buscar categoría…"
+            className="st-input !h-10 !rounded-[10px] !pl-9 !text-[14px]"
+          />
+        </label>
+      )}
+      {(q ? list : [['', total] as [string, number], ...list]).map(([c, n]) => (
+        <button
+          key={c || 'todos'}
+          type="button"
+          onClick={() => onPick(c)}
+          className="-mx-2.5 flex w-[calc(100%+20px)] justify-between gap-3 rounded-[10px] px-2.5 py-[7px] text-left text-[15px]"
+          style={value === c ? { backgroundColor: 'var(--st-sf)', fontWeight: 600 } : { color: 'var(--st-ink2)' }}
+        >
+          <span className="min-w-0 [overflow-wrap:anywhere]">{c ? categoryLabel(c) : 'Todos'}</span>
+          <small style={{ color: 'var(--st-soft)' }}>{n}</small>
+        </button>
+      ))}
+      {q && list.length === 0 && (
+        <p className="py-2 text-[14px]" style={{ color: 'var(--st-mut)' }}>
+          No hay categorías con “{find}”.
+        </p>
+      )}
+    </>
   )
 }

@@ -47,3 +47,8 @@ export function categoryLabel(name: string): string {
   const lower = name.toLocaleLowerCase('es')
   return lower.charAt(0).toLocaleUpperCase('es') + lower.slice(1)
 }
+
+// Compara sin mayúsculas ni tildes: "conexion" encuentra "CONEXIÓN".
+export function normalizeText(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+}
