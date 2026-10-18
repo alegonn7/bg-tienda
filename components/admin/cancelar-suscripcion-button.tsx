@@ -19,18 +19,17 @@ export function CancelarSuscripcionButton({ activaHasta }: { activaHasta: string
   }
 
   return (
-    <div className="mt-8">
+    <div className="mt-2">
       <button
         type="button"
         onClick={() => setAbierto(true)}
         disabled={pendiente}
-        className="px-4 py-2 text-[13px] disabled:opacity-50"
-        style={{ border: '1px solid #d81b8a', color: '#d81b8a' }}
+        className="adm-btn adm-btn-ghost adm-btn-danger adm-btn-sm !px-0"
       >
         {pendiente ? 'Cancelando…' : 'Cancelar suscripción'}
       </button>
       {error && (
-        <p className="mt-2 text-[13px]" style={{ color: '#b91c1c' }}>
+        <p className="mt-1 text-[13px]" style={{ color: 'var(--adm-bad)' }}>
           {error}
         </p>
       )}

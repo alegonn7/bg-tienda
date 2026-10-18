@@ -1,8 +1,8 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getAdminOrgWithStatus } from '@/lib/tenant'
 import { SuscripcionResumen } from '@/components/admin/suscripcion-resumen'
 import { SincronizarReactivacion } from '@/components/admin/reactivar-suscripcion'
+import { Page, PageHeader } from '@/components/admin/ui'
 
 export default async function SuscripcionPage({
   searchParams,
@@ -16,25 +16,10 @@ export default async function SuscripcionPage({
   if (!ctx) notFound()
 
   return (
-    <div className="mx-auto max-w-[700px] px-4 py-10 sm:px-8">
-      <div className="mb-8">
-        <Link href="/admin" className="text-[13px]" style={{ color: '#6b6b6b' }}>
-          ← Volver
-        </Link>
-        <h1 className="mt-4 text-[24px] font-medium" style={{ color: '#111111' }}>
-          Mi suscripción
-        </h1>
-      </div>
-
+    <Page width={1080}>
+      <PageHeader sub title="Mi suscripción" description="Tu plan de BG Tienda y tus pagos." />
       {reactivar && ctx.role === 'owner' && <SincronizarReactivacion />}
-
-      <div className="p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
-        <SuscripcionResumen
-          organizationId={ctx.organizationId}
-          subscriptionStatus={ctx.subscriptionStatus}
-          esDueno={ctx.role === 'owner'}
-        />
-      </div>
-    </div>
+      <SuscripcionResumen organizationId={ctx.organizationId} subscriptionStatus={ctx.subscriptionStatus} esDueno={ctx.role === 'owner'} />
+    </Page>
   )
 }

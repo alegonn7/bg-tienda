@@ -1,56 +1,72 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ChevronLeft, ChevronRight, Eye, ImagePlus, Trash2, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { deleteHeroImage, refreshStorefrontHero } from '@/app/admin/actions'
+import { deleteHeroImage, refreshStorefrontHero, reorderHeroImages, updateHeroText } from '@/app/admin/actions'
 import { compressImage } from '@/lib/compress-image'
 import { ConfirmDialog } from '@/components/admin/confirm-dialog'
+import { ErrorText, Field, PageHeader, SuccessText } from '@/components/admin/ui'
 
 type HeroImage = { id: string; url: string; position: number }
 
-export function HeroManager({ images, organizationId }: { images: HeroImage[]; organizationId: string }) {
+type Props = {
+  images: HeroImage[]
+  organizationId: string
+  storeName: string
+  heroTitle: string | null
+  heroSubtitle: string | null
+}
+
+export function HeroManager({ images: initial, organizationId, storeName, heroTitle, heroSubtitle }: Props) {
   const router = useRouter()
-  const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
+  const [images, setImages] = useState(initial)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [slide, setSlide] = useState(0)
+  const [title, setTitle] = useState(heroTitle ?? '')
+  const [subtitle, setSubtitle] = useState(heroSubtitle ?? '')
+  const [savingText, setSavingText] = useState(false)
+  const [textMsg, setTextMsg] = useState('')
+
+  // El server manda la lista nueva después de cada cambio (subir, borrar, reordenar).
+  useEffect(() => setImages(initial), [initial])
+
+  // Igual que en la tienda: pasa sola cada 5 segundos.
+  useEffect(() => {
+    if (images.length < 2) return
+    const t = setInterval(() => setSlide((s) => (s + 1) % images.length), 5000)
+    return () => clearInterval(t)
+  }, [images.length])
+  const current = images.length ? images[slide % images.length] : null
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (!files.length) return
-
+    const supabase = createClient()
     setUploading(true)
     setError('')
+    let position = images.reduce((m, i) => Math.max(m, i.position + 1), 0)
 
     for (const original of files) {
       const file = await compressImage(original, { maxSize: 1920 })
       const ext = file.name.split('.').pop()
       const filename = `${organizationId}/hero/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('store-product-images')
-        .upload(filename, file)
-
+      const { error: uploadError } = await supabase.storage.from('store-product-images').upload(filename, file)
       if (uploadError) {
-        setError(`Error subiendo imagen: ${uploadError.message}`)
-        setUploading(false)
-        return
+        setError(`No se pudo subir la imagen: ${uploadError.message}`)
+        break
       }
-
       const { data } = supabase.storage.from('store-product-images').getPublicUrl(filename)
-
-      const { error: dbError } = await supabase.from('hero_images').insert({
-        url: data.publicUrl,
-        position: images.length,
-        organization_id: organizationId,
-      })
-
+      const { error: dbError } = await supabase
+        .from('hero_images')
+        .insert({ url: data.publicUrl, position: position++, organization_id: organizationId })
       if (dbError) {
-        setError(`Error guardando imagen: ${dbError.message}`)
-        setUploading(false)
-        return
+        setError(`No se pudo guardar la imagen: ${dbError.message}`)
+        break
       }
     }
 
@@ -61,92 +77,209 @@ export function HeroManager({ images, organizationId }: { images: HeroImage[]; o
   }
 
   async function handleDelete(id: string) {
-    await deleteHeroImage(id)
     setDeletingId(null)
-    router.refresh()
+    setError('')
+    try {
+      await deleteHeroImage(id)
+      setSlide(0)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar.')
+    }
   }
 
+  async function move(index: number, delta: number) {
+    const to = index + delta
+    if (to < 0 || to >= images.length) return
+    const next = [...images]
+    ;[next[index], next[to]] = [next[to], next[index]]
+    setImages(next)
+    setError('')
+    try {
+      await reorderHeroImages(next.map((i) => i.id))
+      router.refresh()
+    } catch (err) {
+      setImages(images)
+      setError(err instanceof Error ? err.message : 'No se pudo cambiar el orden.')
+    }
+  }
+
+  async function saveText(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingText(true)
+    setTextMsg('')
+    setError('')
+    try {
+      await updateHeroText(title, subtitle)
+      setTextMsg('Guardado')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar.')
+    } finally {
+      setSavingText(false)
+    }
+  }
+
+  const textChanged = title !== (heroTitle ?? '') || subtitle !== (heroSubtitle ?? '')
+
   return (
-    <div>
+    <>
       <ConfirmDialog
         open={!!deletingId}
         title="Eliminar imagen"
-        message="¿Eliminar esta imagen del banner?"
+        message="¿Sacar esta imagen del banner?"
         confirmText="Eliminar"
         danger
         onConfirm={() => deletingId && handleDelete(deletingId)}
         onCancel={() => setDeletingId(null)}
       />
-      <div className="mb-6">
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleUpload}
-          className="hidden"
-          id="hero-upload"
-        />
-        <label
-          htmlFor="hero-upload"
-          className="inline-flex cursor-pointer items-center gap-2 px-5 py-2.5 text-[13px]"
-          style={{
-            border: '1px solid #111111',
-            color: uploading ? '#6b6b6b' : '#111111',
-            backgroundColor: '#fff',
-          }}
-        >
-          {uploading ? 'Subiendo...' : '+ Agregar imagen'}
-        </label>
-        <p className="mt-2 text-[12px]" style={{ color: '#6b6b6b' }}>
-          Las imágenes van rotando cada 5 segundos. Si subís una sola queda fija.
-        </p>
-      </div>
+      <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleUpload} className="hidden" id="hero-upload" />
 
-      {error && (
-        <p className="mb-4 text-[13px]" style={{ color: '#d81b8a' }}>
-          {error}
-        </p>
-      )}
+      <PageHeader
+        sub
+        title="Banner de portada"
+        description="Las imágenes grandes que se ven arriba de todo en tu tienda. Pasan solas cada 5 segundos."
+        actions={
+          <label htmlFor="hero-upload" className={`adm-btn adm-btn-pri hidden cursor-pointer md:inline-flex ${uploading ? 'pointer-events-none opacity-60' : ''}`}>
+            <Upload />
+            {uploading ? 'Subiendo…' : 'Subir imagen'}
+          </label>
+        }
+      />
 
-      {images.length === 0 ? (
-        <div
-          className="py-16 text-center text-[14px]"
-          style={{ border: '1px solid #e5e5e5', color: '#6b6b6b' }}
-        >
-          No hay imágenes de banner todavía.
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          {images.map((img, i) => (
-            <div key={img.id} className="relative group">
-              {i === 0 && (
-                <span
-                  className="absolute left-2 top-2 z-10 px-2 py-0.5 text-[10px] uppercase"
-                  style={{ backgroundColor: '#111111', color: '#fff', letterSpacing: '0.04em' }}
-                >
-                  Primera
-                </span>
-              )}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+      <div className="grid gap-4">
+        {/* Vista previa: imita la portada real (caja blanca translúcida centrada sobre la foto). */}
+        <div>
+          <p className="mb-2 flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--adm-muted)' }}>
+            <Eye className="h-3.5 w-3.5" />
+            Vista previa
+          </p>
+          <div
+            className="relative grid aspect-[4/3] place-items-center overflow-hidden rounded-[14px] sm:aspect-[16/9] md:aspect-[16/6]"
+            style={{ backgroundColor: '#ececea', border: '1px solid var(--adm-line)' }}
+          >
+            {images.map((img, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
+                key={img.id}
                 src={img.url}
-                alt={`Banner ${i + 1}`}
-                className="aspect-video w-full object-cover"
-                style={{ border: '1px solid #e5e5e5' }}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700"
+                style={{ opacity: current?.id === img.id ? 1 : 0 }}
               />
-              <button
-                type="button"
-                onClick={() => setDeletingId(img.id)}
-                className="absolute right-2 top-2 px-2 py-1 text-[12px] opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{ backgroundColor: '#d81b8a', color: '#fff' }}
-              >
-                Eliminar
-              </button>
+            ))}
+            <div
+              className="relative mx-4 max-w-[560px] px-6 py-6 text-center md:px-10 md:py-9"
+              style={current ? { backgroundColor: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(6px)' } : {}}
+            >
+              <span className="mx-auto mb-4 block h-px w-8" style={{ backgroundColor: 'var(--adm-accent)' }} />
+              <p className="text-balance text-[19px] font-medium leading-[1.1] md:text-[34px]" style={{ color: '#111' }}>
+                {title.trim() || `Bienvenido a ${storeName}`}
+              </p>
+              {subtitle.trim() && (
+                <p className="mx-auto mt-2 max-w-[400px] text-[13px] md:mt-3 md:text-[15px]" style={{ color: '#333' }}>
+                  {subtitle}
+                </p>
+              )}
+              <span className="mt-4 inline-block px-4 py-2 text-[12px] md:mt-6 md:text-[13px]" style={{ backgroundColor: '#fff', border: '1px solid #111', color: '#111' }}>
+                Ver productos →
+              </span>
             </div>
-          ))}
+            {images.length > 1 && (
+              <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+                {images.map((img, i) => (
+                  <button
+                    key={img.id}
+                    type="button"
+                    onClick={() => setSlide(i)}
+                    aria-label={`Ver imagen ${i + 1}`}
+                    className="h-1.5 rounded-full transition-all"
+                    style={{ width: current?.id === img.id ? 18 : 6, backgroundColor: current?.id === img.id ? '#fff' : 'rgba(255,255,255,0.6)' }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      )}
-    </div>
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+          <div className="adm-card">
+            <div className="adm-card-h flex-wrap gap-y-1">
+              <h3>Imágenes ({images.length})</h3>
+              <span className="hidden text-[12px] sm:block" style={{ color: 'var(--adm-muted)' }}>
+                Con las flechas cambiás el orden · ideal 1920×720 px
+              </span>
+            </div>
+            <div className="p-3 md:p-4">
+              <ErrorText>{error}</ErrorText>
+              <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 ${error ? 'mt-3' : ''}`}>
+                {images.map((img, i) => (
+                  <div key={img.id} className="overflow-hidden rounded-[10px]" style={{ border: '1px solid var(--adm-line)' }}>
+                    <button type="button" onClick={() => setSlide(i)} className="relative block w-full" aria-label={`Ver imagen ${i + 1} en la vista previa`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img.url} alt={`Banner ${i + 1}`} className="aspect-video w-full object-cover" />
+                      <span
+                        className="absolute left-2 top-2 grid h-5 min-w-5 place-items-center rounded-[6px] px-1 text-[11px] font-semibold"
+                        style={{ backgroundColor: '#fff', color: 'var(--adm-ink)' }}
+                      >
+                        {i + 1}
+                      </span>
+                    </button>
+                    <div className="flex items-center gap-0.5 px-1.5 py-1" style={{ borderTop: '1px solid var(--adm-line2)' }}>
+                      <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="adm-btn adm-btn-ghost adm-btn-sm !px-1.5" aria-label="Mover antes">
+                        <ChevronLeft />
+                      </button>
+                      <button type="button" disabled={i === images.length - 1} onClick={() => move(i, 1)} className="adm-btn adm-btn-ghost adm-btn-sm !px-1.5" aria-label="Mover después">
+                        <ChevronRight />
+                      </button>
+                      <button type="button" onClick={() => setDeletingId(img.id)} className="adm-btn adm-btn-ghost adm-btn-sm ml-auto !px-1.5" aria-label="Eliminar imagen">
+                        <Trash2 />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <label
+                  htmlFor="hero-upload"
+                  className={`grid min-h-[120px] cursor-pointer place-items-center rounded-[10px] text-center ${uploading ? 'pointer-events-none opacity-60' : ''}`}
+                  style={{ border: '1.5px dashed var(--adm-line)', color: 'var(--adm-muted)' }}
+                >
+                  <span>
+                    <ImagePlus className="mx-auto h-5 w-5" />
+                    <span className="mt-1 block text-[13px]">{uploading ? 'Subiendo…' : 'Agregar imagen'}</span>
+                    <span className="block text-[11px]" style={{ color: 'var(--adm-soft)' }}>
+                      JPG o PNG
+                    </span>
+                  </span>
+                </label>
+              </div>
+              {images.length === 0 && (
+                <p className="adm-hint mt-3">Sin imágenes, la portada muestra solo el texto sobre un fondo liso.</p>
+              )}
+            </div>
+          </div>
+
+          <form onSubmit={saveText} className="adm-card">
+            <div className="adm-card-h block">
+              <h3>Texto sobre el banner</h3>
+              <p className="adm-hint mt-0.5 text-[12px]">Si lo dejás vacío dice &ldquo;Bienvenido a {storeName}&rdquo;.</p>
+            </div>
+            <div className="grid gap-3 p-4">
+              <Field label="Título">
+                <input value={title} onChange={(e) => setTitle(e.target.value)} className="adm-input" placeholder={`Bienvenido a ${storeName}`} maxLength={80} />
+              </Field>
+              <Field label="Subtítulo" hint="Opcional. Una línea corta.">
+                <input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="adm-input" placeholder="Ej: Envíos a todo el país" maxLength={140} />
+              </Field>
+              <div className="flex items-center gap-3">
+                <button type="submit" disabled={savingText || !textChanged} className="adm-btn adm-btn-pri">
+                  {savingText ? 'Guardando…' : 'Guardar texto'}
+                </button>
+                {!textChanged && <SuccessText>{textMsg}</SuccessText>}
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </>
   )
 }

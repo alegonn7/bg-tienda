@@ -90,32 +90,33 @@ export function SuggestImagesQueue({ products }: { products: QueueProduct[] }) {
 
   if (!current) {
     return (
-      <div className="py-16 text-center">
-        <p className="text-[15px]" style={{ color: '#111111' }}>
-          {total === 0
-            ? 'No hay productos sin imagen.'
-            : `Listo — asignaste imagen a ${done} de ${total} productos.`}
+      <div className="adm-card px-5 py-14 text-center">
+        <p className="text-[15px] font-medium">
+          {total === 0 ? 'Todos tus productos tienen foto.' : `Listo: le pusiste foto a ${done} de ${total} productos.`}
         </p>
-        <Link href="/admin" className="mt-4 inline-block text-[13px]" style={{ color: '#d81b8a' }}>
-          ← Volver a productos
+        <Link href="/admin/productos" className="adm-btn mt-4">
+          Volver a productos
         </Link>
       </div>
     )
   }
 
   return (
-    <div>
-      <p className="mb-4 text-[13px]" style={{ color: '#6b6b6b' }}>
-        Quedan {remaining.length} de {total}
-      </p>
+    <div className="grid gap-3">
+      <div className="flex items-center gap-3">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: '#e9e9e6' }}>
+          <div className="h-full rounded-full" style={{ width: `${((total - remaining.length) / Math.max(1, total)) * 100}%`, backgroundColor: 'var(--adm-ink)' }} />
+        </div>
+        <span className="text-[13px]" style={{ color: 'var(--adm-muted)' }}>
+          Quedan {remaining.length} de {total}
+        </span>
+      </div>
 
-      <div className="p-6" style={{ border: '1px solid #e5e5e5', backgroundColor: '#fff' }}>
-        <p className="text-[12px] uppercase" style={{ letterSpacing: '0.06em', color: '#6b6b6b' }}>
+      <div className="adm-card p-4 md:p-6">
+        <p className="text-[12px]" style={{ color: 'var(--adm-muted)' }}>
           {current.category || 'Sin categoría'}
         </p>
-        <h2 className="mt-1 text-[18px] font-medium" style={{ color: '#111111' }}>
-          {current.name}
-        </h2>
+        <h2 className="text-[18px] font-semibold">{current.name}</h2>
 
         <div className="mt-4 flex gap-2">
           <input
@@ -127,50 +128,46 @@ export function SuggestImagesQueue({ products }: { products: QueueProduct[] }) {
             }}
             onKeyDown={(e) => e.key === 'Enter' && runSearch(query)}
             placeholder="Texto de búsqueda"
-            className="flex-1 px-3 py-2 text-[14px] outline-none"
-            style={{ border: '1px solid #e5e5e5', color: '#111111' }}
+            className="adm-input min-w-0 flex-1"
           />
-          <button
-            type="button"
-            onClick={() => runSearch(query)}
-            disabled={searching}
-            className="px-4 py-2 text-[13px] disabled:opacity-60"
-            style={{ border: '1px solid #111111', color: '#111111', backgroundColor: '#fff' }}
-          >
+          <button type="button" onClick={() => runSearch(query)} disabled={searching} className="adm-btn">
             Buscar
           </button>
         </div>
 
         {translated && (
-          <p className="mt-1 text-[11px]" style={{ color: '#6b6b6b' }}>
-            Traducido automáticamente del nombre del producto — lo podés editar.
+          <p className="mt-1 text-[12px]" style={{ color: 'var(--adm-soft)' }}>
+            Traducido automáticamente del nombre del producto. Lo podés editar.
           </p>
         )}
 
         {error && (
-          <p className="mt-3 text-[13px]" style={{ color: '#d81b8a' }}>
+          <p className="mt-3 text-[13px]" style={{ color: 'var(--adm-bad)' }}>
             {error}
           </p>
         )}
 
         <div className="mt-4">
           {searching ? (
-            <p className="py-8 text-center text-[13px]" style={{ color: '#6b6b6b' }}>
-              Buscando...
+            <p className="py-10 text-center text-[13px]" style={{ color: 'var(--adm-muted)' }}>
+              Buscando…
             </p>
           ) : candidates.length === 0 ? (
-            <p className="py-8 text-center text-[13px]" style={{ color: '#6b6b6b' }}>
+            <p className="py-10 text-center text-[13px]" style={{ color: 'var(--adm-muted)' }}>
               Sin resultados. Probá con otro texto de búsqueda.
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
               {candidates.map((c) => (
                 <button
                   key={c.imageUrl}
                   type="button"
                   onClick={() => setSelected(c.imageUrl)}
-                  className="aspect-square overflow-hidden"
-                  style={{ border: selected === c.imageUrl ? '3px solid #d81b8a' : '1px solid #e5e5e5' }}
+                  className="aspect-square overflow-hidden rounded-[10px]"
+                  style={{
+                    boxShadow: selected === c.imageUrl ? '0 0 0 3px var(--adm-accent)' : 'none',
+                    border: '1px solid var(--adm-line)',
+                  }}
                   title={c.photographer ? `${c.title} — Foto de ${c.photographer} en Pexels` : c.title}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -181,50 +178,37 @@ export function SuggestImagesQueue({ products }: { products: QueueProduct[] }) {
           )}
         </div>
 
-        {selectedCandidate && (
-          <p className="mt-3 text-[12px]" style={{ color: '#6b6b6b' }}>
-            Foto de{' '}
-            <a href={selectedCandidate.photographerUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>
-              {selectedCandidate.photographer || 'autor desconocido'}
-            </a>{' '}
-            en{' '}
-            <a href={selectedCandidate.contextLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>
+        <div className="mt-3 grid gap-1 text-[12px]" style={{ color: 'var(--adm-muted)' }}>
+          {selectedCandidate && (
+            <p>
+              Foto de{' '}
+              <a href={selectedCandidate.photographerUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                {selectedCandidate.photographer || 'autor desconocido'}
+              </a>{' '}
+              en{' '}
+              <a href={selectedCandidate.contextLink} target="_blank" rel="noopener noreferrer" className="underline">
+                Pexels
+              </a>
+            </p>
+          )}
+          <p>Fijate que la imagen sea apropiada para tu tienda antes de usarla: la búsqueda no filtra derechos de autor.</p>
+          <p style={{ color: 'var(--adm-soft)' }}>
+            Fotos provistas por{' '}
+            <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" className="underline">
               Pexels
             </a>
           </p>
-        )}
+        </div>
 
-        <p className="mt-2 text-[12px]" style={{ color: '#6b6b6b' }}>
-          Fijate que la imagen sea apropiada para tu tienda antes de usarla — la búsqueda no filtra derechos de autor.
-        </p>
-
-        <p className="mt-2 text-[11px]" style={{ color: '#9b9b9b' }}>
-          Fotos provistas por{' '}
-          <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>
-            Pexels
-          </a>
-        </p>
-
-        <div className="mt-4 flex items-center gap-4 pt-4" style={{ borderTop: '1px solid #e5e5e5' }}>
-          <button
-            type="button"
-            onClick={useSelected}
-            disabled={!selected || assigning}
-            className="pc-btn px-5 py-2.5 text-[13px] disabled:opacity-60"
-          >
-            {assigning ? 'Guardando...' : 'Usar esta imagen →'}
+        <div className="mt-4 flex flex-wrap items-center gap-2 pt-4" style={{ borderTop: '1px solid var(--adm-line2)' }}>
+          <button type="button" onClick={useSelected} disabled={!selected || assigning} className="adm-btn adm-btn-pri">
+            {assigning ? 'Guardando…' : 'Usar esta foto'}
           </button>
-          <button
-            type="button"
-            onClick={skip}
-            disabled={assigning}
-            className="text-[13px] disabled:opacity-60"
-            style={{ color: '#6b6b6b' }}
-          >
+          <button type="button" onClick={skip} disabled={assigning} className="adm-btn adm-btn-ghost">
             Saltar
           </button>
-          <Link href={`/admin/productos/${current.id}/editar`} className="text-[13px]" style={{ color: '#6b6b6b' }}>
-            Subir la mía →
+          <Link href={`/admin/productos/${current.id}/editar`} className="adm-btn adm-btn-ghost ml-auto">
+            Subir la mía
           </Link>
         </div>
       </div>

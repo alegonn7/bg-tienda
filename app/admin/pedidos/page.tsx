@@ -2,30 +2,34 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgForAdminRead } from '@/lib/tenant'
 import { PedidosList } from '@/components/admin/pedidos-list'
+import { Page } from '@/components/admin/ui'
 
-export default async function PedidosPage() {
+export default async function PedidosPage({
+  searchParams,
+}: {
+  // id: pedido abierto (desde Inicio). q: búsqueda de la barra de arriba. filtro=atender: atajo.
+  searchParams: Promise<{ id?: string; q?: string; filtro?: string }>
+}) {
   const ctx = await getOrgForAdminRead()
   if (!ctx) notFound()
 
+  const { id, q, filtro } = await searchParams
   const supabase = await createClient()
   const { data } = await supabase
     .from('store_orders')
     .select('*, store_order_items(*)')
     .order('created_at', { ascending: false })
-    .limit(100)
+    .limit(300)
 
   return (
-    <div className="mx-auto max-w-[900px] px-8 py-10">
-      <div className="mb-8">
-        <h1 className="text-[24px] font-medium" style={{ color: '#111111' }}>
-          Pedidos
-        </h1>
-        <p className="mt-1 text-[14px]" style={{ color: '#6b6b6b' }}>
-          Pedidos hechos desde la tienda online. Confirmar descuenta el stock de verdad.
-        </p>
-      </div>
-
-      <PedidosList orders={data ?? []} />
-    </div>
+    <Page>
+      <PedidosList
+        key={`${id ?? ''}|${q ?? ''}|${filtro ?? ''}`}
+        orders={data ?? []}
+        initialId={id}
+        initialSearch={q ?? ''}
+        initialFilter={filtro === 'atender' ? 'atender' : id || q ? 'todos' : undefined}
+      />
+    </Page>
   )
 }

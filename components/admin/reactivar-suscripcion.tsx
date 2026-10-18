@@ -18,21 +18,13 @@ export function ReactivarSuscripcionButton({ mensaje }: { mensaje: string }) {
   }
 
   return (
-    <div className="mt-8 p-5" style={{ border: '1px solid #111111' }}>
-      <p className="text-[14px]" style={{ color: '#111111' }}>
-        {mensaje}
-      </p>
-      <button
-        type="button"
-        onClick={reactivar}
-        disabled={pendiente}
-        className="mt-4 px-4 py-2 text-[13px] disabled:opacity-50"
-        style={{ backgroundColor: '#111111', color: '#fff' }}
-      >
+    <div className="adm-card p-4 md:p-5" style={{ borderColor: 'var(--adm-ink)' }}>
+      <p className="text-[14px]">{mensaje}</p>
+      <button type="button" onClick={reactivar} disabled={pendiente} className="adm-btn adm-btn-pri mt-3">
         {pendiente ? 'Abriendo Mercado Pago…' : 'Reactivar suscripción'}
       </button>
       {error && (
-        <p className="mt-2 text-[13px]" style={{ color: '#b91c1c' }}>
+        <p className="mt-2 text-[13px]" style={{ color: 'var(--adm-bad)' }}>
           {error}
         </p>
       )}
@@ -83,10 +75,10 @@ export function SincronizarReactivacion() {
 
   return (
     <div
-      className="mb-6 px-4 py-3 text-[13px]"
+      className="adm-alert mb-4"
       style={{
-        backgroundColor: estado === 'lista' ? '#dcfce7' : '#f5f5f4',
-        color: estado === 'lista' ? '#14532d' : '#44403c',
+        backgroundColor: estado === 'lista' ? 'var(--adm-ok-soft)' : '#efefec',
+        color: estado === 'lista' ? 'var(--adm-ok)' : 'var(--adm-ink)',
       }}
     >
       {texto}

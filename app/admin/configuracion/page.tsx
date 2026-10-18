@@ -1,22 +1,23 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { Truck, Wallet } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgForAdminRead } from '@/lib/tenant'
 import { getMercadoPagoStatus, getShippingStatus } from '@/app/admin/actions'
-import { MercadoPagoSettingsForm } from '@/components/admin/mercadopago-settings-form'
+import { PaymentMethods } from '@/components/admin/payment-methods'
 import { ShippingSettingsForm } from '@/components/admin/shipping-settings-form'
-import { WhatsAppOrdersForm } from '@/components/admin/whatsapp-orders-form'
-import { TransferSettingsForm } from '@/components/admin/transfer-settings-form'
+import { Page, PageHeader } from '@/components/admin/ui'
 
 export default async function ConfiguracionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mp_connected?: string; mp_error?: string }>
+  searchParams: Promise<{ tab?: string; mp_connected?: string; mp_error?: string }>
 }) {
   const ctx = await getOrgForAdminRead()
   if (!ctx) notFound()
 
-  const { mp_connected, mp_error } = await searchParams
+  const { tab, mp_connected, mp_error } = await searchParams
+  const envios = tab === 'envios'
 
   const supabase = await createClient()
   const { data: storeSettings } = await supabase
@@ -29,7 +30,68 @@ export default async function ConfiguracionPage({
 
   if (!storeSettings) notFound()
 
+  const tabs = [
+    { key: 'pagos', label: 'Medios de pago', icon: Wallet, href: '/admin/configuracion', on: !envios },
+    { key: 'envios', label: 'Envíos', icon: Truck, href: '/admin/configuracion?tab=envios', on: envios },
+  ]
+
+  return (
+    <Page width={900}>
+      <PageHeader sub title="Pagos y envíos" description="Cómo te pagan y cómo les llega el pedido a tus clientes." />
+      <nav className="mb-4 flex gap-5" style={{ borderBottom: '1px solid var(--adm-line)' }}>
+        {tabs.map((t) => (
+          <Link
+            key={t.key}
+            href={t.href}
+            replace
+            scroll={false}
+            className="-mb-px flex items-center gap-1.5 pb-2.5 text-[14px]"
+            style={
+              t.on
+                ? { borderBottom: '2px solid var(--adm-ink)', color: 'var(--adm-ink)', fontWeight: 600 }
+                : { borderBottom: '2px solid transparent', color: 'var(--adm-muted)' }
+            }
+          >
+            <t.icon className="h-4 w-4" />
+            {t.label}
+          </Link>
+        ))}
+      </nav>
+
+      {envios ? <Envios settings={storeSettings} /> : <Pagos settings={storeSettings} mpConnected={mp_connected === '1'} mpError={mp_error} />}
+    </Page>
+  )
+}
+
+type Settings = {
+  show_prices: boolean
+  payment_online_enabled: boolean
+  shipping_enabled: boolean
+  free_shipping_threshold: number | null
+  shipping_pricing_mode: string
+  fixed_shipping_default_cost: number | null
+  fixed_shipping_zones: unknown
+  whatsapp_orders_enabled: boolean
+  whatsapp_number: string | null
+  transfer_enabled: boolean
+  transfer_cbu: string | null
+  transfer_alias: string | null
+  transfer_receipt_email: string | null
+}
+
+async function Pagos({ settings, mpConnected, mpError }: { settings: Settings; mpConnected: boolean; mpError?: string }) {
   const mpStatus = await getMercadoPagoStatus().catch(() => ({ connected: false, mpEmail: null, liveMode: null }))
+  return (
+    <PaymentMethods
+      showPrices={settings.show_prices}
+      mp={{ ...mpStatus, enabled: settings.payment_online_enabled, justConnected: mpConnected, error: mpError }}
+      transfer={{ enabled: settings.transfer_enabled, cbu: settings.transfer_cbu, alias: settings.transfer_alias, receiptEmail: settings.transfer_receipt_email }}
+      whatsapp={{ enabled: settings.whatsapp_orders_enabled, number: settings.whatsapp_number }}
+    />
+  )
+}
+
+async function Envios({ settings }: { settings: Settings }) {
   const shippingStatus = await getShippingStatus().catch(() => ({
     connected: false,
     carrier: null,
@@ -37,89 +99,19 @@ export default async function ConfiguracionPage({
     environment: null,
     origin: null,
   }))
-
   return (
-    <div className="mx-auto max-w-[700px] px-8 py-10">
-      <div className="mb-8">
-        <Link href="/admin" className="text-[13px]" style={{ color: '#6b6b6b' }}>
-          ← Volver
-        </Link>
-        <h1 className="mt-4 text-[24px] font-medium" style={{ color: '#111111' }}>
-          Configuración
-        </h1>
-      </div>
-
-      <div className="mb-8 p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
-        <h2 className="mb-1 text-[15px] font-medium" style={{ color: '#111111' }}>
-          WhatsApp
-        </h2>
-        <p className="mb-6 text-[13px]" style={{ color: '#6b6b6b' }}>
-          El cliente arma su carrito y te lo manda por WhatsApp para coordinar el pago y la
-          entrega a mano, sin pasar por Mercado Pago.
-        </p>
-        <WhatsAppOrdersForm
-          enabled={storeSettings.whatsapp_orders_enabled}
-          hasWhatsappNumber={!!storeSettings.whatsapp_number}
-        />
-      </div>
-
-      <div className="mb-8 p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
-        <h2 className="mb-1 text-[15px] font-medium" style={{ color: '#111111' }}>
-          Mercado Pago
-        </h2>
-        <p className="mb-6 text-[13px]" style={{ color: '#6b6b6b' }}>
-          Cobrá pedidos online. La plataforma cobra una comisión fija del 1% de servicio, que se
-          le suma al cliente en el checkout (vos recibís el 100% del precio de lista).
-        </p>
-        <MercadoPagoSettingsForm
-          connected={mpStatus.connected}
-          mpEmail={mpStatus.mpEmail}
-          liveMode={mpStatus.liveMode}
-          showPrices={storeSettings.show_prices}
-          enabled={storeSettings.payment_online_enabled}
-          mpConnected={mp_connected === '1'}
-          mpError={mp_error}
-        />
-      </div>
-
-      <div className="mb-8 p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
-        <h2 className="mb-1 text-[15px] font-medium" style={{ color: '#111111' }}>
-          Transferencia bancaria
-        </h2>
-        <p className="mb-6 text-[13px]" style={{ color: '#6b6b6b' }}>
-          El cliente ve tu CBU/alias, transfiere por su cuenta y te manda el comprobante. Vos
-          confirmás el pago a mano desde Pedidos cuando te llegue la plata.
-        </p>
-        <TransferSettingsForm
-          enabled={storeSettings.transfer_enabled}
-          cbu={storeSettings.transfer_cbu}
-          alias={storeSettings.transfer_alias}
-          receiptEmail={storeSettings.transfer_receipt_email}
-        />
-      </div>
-
-      <div className="p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
-        <h2 className="mb-1 text-[15px] font-medium" style={{ color: '#111111' }}>
-          Envíos
-        </h2>
-        <p className="mb-6 text-[13px]" style={{ color: '#6b6b6b' }}>
-          Envío automático con Correo Argentino/Andreani, o montos fijos por provincia si no
-          querés lidiar con credenciales de transportista. "Retirar en el local" siempre queda
-          disponible, aparte de esto.
-        </p>
-        <ShippingSettingsForm
-          connected={shippingStatus.connected}
-          carrier={shippingStatus.carrier as 'correo_argentino' | 'andreani' | null}
-          displayLabel={shippingStatus.displayLabel}
-          environment={shippingStatus.environment as 'test' | 'production' | null}
-          origin={shippingStatus.origin}
-          shippingEnabled={storeSettings.shipping_enabled}
-          freeShippingThreshold={storeSettings.free_shipping_threshold}
-          pricingMode={storeSettings.shipping_pricing_mode as 'carrier' | 'fixed_zones'}
-          fixedShippingDefaultCost={storeSettings.fixed_shipping_default_cost}
-          fixedShippingZones={(storeSettings.fixed_shipping_zones ?? []) as { province: string; cost: number }[]}
-        />
-      </div>
-    </div>
+    <ShippingSettingsForm
+      pickupAddress={null}
+      connected={shippingStatus.connected}
+      carrier={shippingStatus.carrier as 'correo_argentino' | 'andreani' | null}
+      displayLabel={shippingStatus.displayLabel}
+      environment={shippingStatus.environment as 'test' | 'production' | null}
+      origin={shippingStatus.origin}
+      shippingEnabled={settings.shipping_enabled}
+      freeShippingThreshold={settings.free_shipping_threshold}
+      pricingMode={settings.shipping_pricing_mode as 'carrier' | 'fixed_zones'}
+      fixedShippingDefaultCost={settings.fixed_shipping_default_cost}
+      fixedShippingZones={(settings.fixed_shipping_zones ?? []) as { province: string; cost: number }[]}
+    />
   )
 }

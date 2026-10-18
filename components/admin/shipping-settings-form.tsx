@@ -11,14 +11,8 @@ import {
 } from '@/app/admin/actions'
 import { ARGENTINA_PROVINCES } from '@/lib/argentina-provinces'
 import { ConfirmDialog } from '@/components/admin/confirm-dialog'
-
-const inputStyle = {
-  border: '1px solid #e5e5e5',
-  backgroundColor: '#fff',
-  color: '#111111',
-} as const
-
-const labelStyle = { letterSpacing: '0.06em', color: '#6b6b6b' } as const
+import { Field, Toggle } from '@/components/admin/ui'
+import { Plus, Store, Trash2, Truck } from 'lucide-react'
 
 function parseThreshold(value: string): number | null {
   return value.trim() === '' ? null : Number(value)
@@ -37,6 +31,7 @@ type OriginAddress = {
 }
 
 type Props = {
+  pickupAddress: string | null
   connected: boolean
   carrier: Carrier | null
   displayLabel: string | null
@@ -50,6 +45,7 @@ type Props = {
 }
 
 export function ShippingSettingsForm({
+  pickupAddress,
   connected,
   carrier,
   displayLabel,
@@ -94,6 +90,7 @@ export function ShippingSettingsForm({
 
   const [enabled, setEnabled] = useState(shippingEnabled)
   const [threshold, setThreshold] = useState(freeShippingThreshold != null ? String(freeShippingThreshold) : '')
+  const [freeOn, setFreeOn] = useState(freeShippingThreshold != null)
 
   const [savingCredentials, setSavingCredentials] = useState(false)
   const [savingOrigin, setSavingOrigin] = useState(false)
@@ -222,6 +219,26 @@ export function ShippingSettingsForm({
     }
   }
 
+  async function handleFreeToggle(next: boolean) {
+    if (next) {
+      setFreeOn(true)
+      return
+    }
+    setFreeOn(false)
+    setThreshold('')
+    setSavingThreshold(true)
+    setError('')
+    try {
+      await updateShippingSettings({ enabled, freeShippingThreshold: null, pricingMode: mode })
+      router.refresh()
+    } catch (err) {
+      setFreeOn(true)
+      setError(err instanceof Error ? err.message : 'Error guardando')
+    } finally {
+      setSavingThreshold(false)
+    }
+  }
+
   function addZone() {
     setZones((prev) => [...prev, { province: '', cost: '' }])
   }
@@ -265,456 +282,281 @@ export function ShippingSettingsForm({
     }
   }
 
+  const usedProvinces = new Set(zones.map((z) => z.province))
+
   return (
-    <div className="flex flex-col gap-8">
+    <div className="grid gap-3">
       <ConfirmDialog
         open={confirmingDisconnect}
         title="Desconectar transportista"
-        message="¿Desconectar este transportista? El envío calculado se apaga hasta que conectes uno nuevo."
+        message="El envío calculado se apaga hasta que conectes uno nuevo."
         confirmText="Desconectar"
         danger
         onConfirm={handleDisconnect}
         onCancel={() => setConfirmingDisconnect(false)}
       />
       {error && (
-        <p className="text-[13px]" style={{ color: '#d81b8a' }}>
+        <div className="adm-alert" style={{ backgroundColor: 'var(--adm-bad-soft)', color: 'var(--adm-bad)' }}>
           {error}
-        </p>
+        </div>
       )}
       {saved && !error && (
-        <p className="text-[13px]" style={{ color: '#16a34a' }}>
+        <div className="adm-alert" style={{ backgroundColor: 'var(--adm-ok-soft)', color: 'var(--adm-ok)' }}>
           {saved}
-        </p>
-      )}
-
-      {/* Modo de cálculo */}
-      <div>
-        <label className="block text-[12px] uppercase" style={labelStyle}>
-          Cómo calculás el costo de envío
-        </label>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(['carrier', 'fixed_zones'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => handleModeChange(m)}
-              disabled={savingMode}
-              className="px-4 py-2 text-[13px] disabled:opacity-60"
-              style={{
-                border: `1px solid ${mode === m ? '#111111' : '#e5e5e5'}`,
-                backgroundColor: mode === m ? '#111111' : '#fff',
-                color: mode === m ? '#fff' : '#6b6b6b',
-              }}
-            >
-              {m === 'carrier' ? 'Automático (Correo Argentino / Andreani)' : 'Montos fijos por provincia'}
-            </button>
-          ))}
         </div>
-        <p className="mt-2 text-[12px]" style={{ color: '#6b6b6b' }}>
-          {mode === 'carrier'
-            ? 'Cotiza en tiempo real contra el transportista que conectes — necesita credenciales propias de tu cuenta con ellos.'
-            : 'Vos definís cuánto cobrar según la provincia de destino, sin conectar ningún transportista.'}
-        </p>
-      </div>
-
-      {mode === 'carrier' && (
-        <>
-          {/* Transportista */}
-          <div>
-            <label className="block text-[12px] uppercase" style={labelStyle}>
-              Transportista
-            </label>
-
-            {connected ? (
-              <div className="mt-3 flex items-center justify-between p-4" style={{ border: '1px solid #e5e5e5' }}>
-                <div>
-                  <p className="text-[14px]" style={{ color: '#111111' }}>
-                    {carrier === 'andreani' ? 'Andreani' : 'Correo Argentino'}
-                    {environment === 'test' && ' (prueba)'}
-                  </p>
-                  {displayLabel && (
-                    <p className="text-[12px]" style={{ color: '#6b6b6b' }}>
-                      {displayLabel}
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleDisconnectClick}
-                  disabled={disconnecting}
-                  className="text-[13px] disabled:opacity-60"
-                  style={{ color: '#6b6b6b' }}
-                >
-                  {disconnecting ? 'Desconectando...' : 'Desconectar'}
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleSaveCredentials} className="mt-3 flex flex-col gap-4">
-                <div className="flex gap-2">
-                  {(['correo_argentino', 'andreani'] as const).map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setSelectedCarrier(c)}
-                      className="px-4 py-2 text-[13px]"
-                      style={{
-                        border: `1px solid ${selectedCarrier === c ? '#111111' : '#e5e5e5'}`,
-                        backgroundColor: selectedCarrier === c ? '#111111' : '#fff',
-                        color: selectedCarrier === c ? '#fff' : '#6b6b6b',
-                      }}
-                    >
-                      {c === 'andreani' ? 'Andreani' : 'Correo Argentino'}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="p-4 text-[13px]" style={{ backgroundColor: '#f5f5f3', color: '#111111' }}>
-                  {selectedCarrier === 'correo_argentino' ? (
-                    <>
-                      <p className="font-medium">¿No tenés estos datos todavía?</p>
-                      <p className="mt-1" style={{ color: '#6b6b6b' }}>
-                        Pedí el alta como cliente con contrato en{' '}
-                        <a
-                          href="https://integracion.correoargentino.com.ar"
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: '#111111', textDecoration: 'underline' }}
-                        >
-                          integracion.correoargentino.com.ar
-                        </a>{' '}
-                        (o en cualquier sucursal comercial). Te van a dar tres datos — User Token,
-                        Password Token y Customer ID — que son exactamente los tres campos de abajo.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="font-medium">¿No tenés estos datos todavía?</p>
-                      <p className="mt-1" style={{ color: '#6b6b6b' }}>
-                        Date de alta como Andreani PyME con acceso a la API en{' '}
-                        <a
-                          href="https://pymes.andreani.com/integraciones"
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: '#111111', textDecoration: 'underline' }}
-                        >
-                          pymes.andreani.com/integraciones
-                        </a>
-                        . Te van a dar Usuario, Contraseña y un Código de contrato — los tres campos
-                        de abajo.
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                {selectedCarrier === 'correo_argentino' ? (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input
-                      type="text"
-                      value={userToken}
-                      onChange={(e) => setUserToken(e.target.value)}
-                      placeholder="User Token"
-                      required
-                      className="px-4 py-3 text-[14px] outline-none"
-                      style={inputStyle}
-                    />
-                    <input
-                      type="password"
-                      value={passwordToken}
-                      onChange={(e) => setPasswordToken(e.target.value)}
-                      placeholder="Password Token"
-                      required
-                      className="px-4 py-3 text-[14px] outline-none"
-                      style={inputStyle}
-                    />
-                    <input
-                      type="text"
-                      value={customerId}
-                      onChange={(e) => setCustomerId(e.target.value)}
-                      placeholder="Customer ID"
-                      required
-                      className="px-4 py-3 text-[14px] outline-none sm:col-span-2"
-                      style={inputStyle}
-                    />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Usuario"
-                      required
-                      className="px-4 py-3 text-[14px] outline-none"
-                      style={inputStyle}
-                    />
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Contraseña"
-                      required
-                      className="px-4 py-3 text-[14px] outline-none"
-                      style={inputStyle}
-                    />
-                    <input
-                      type="text"
-                      value={contrato}
-                      onChange={(e) => setContrato(e.target.value)}
-                      placeholder="Código de contrato"
-                      required
-                      className="px-4 py-3 text-[14px] outline-none sm:col-span-2"
-                      style={inputStyle}
-                    />
-                  </div>
-                )}
-
-                <div className="flex items-center gap-4">
-                  <label className="text-[13px]" style={{ color: '#6b6b6b' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedEnvironment === 'test'}
-                      onChange={(e) => setSelectedEnvironment(e.target.checked ? 'test' : 'production')}
-                      className="mr-2 h-4 w-4"
-                    />
-                    Son credenciales de prueba
-                  </label>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={savingCredentials}
-                  className="pc-btn w-fit px-6 py-3 text-[14px] disabled:opacity-60"
-                >
-                  {savingCredentials ? 'Conectando...' : 'Conectar transportista →'}
-                </button>
-              </form>
-            )}
-          </div>
-
-          {/* Dirección de origen */}
-          <div>
-            <label className="block text-[12px] uppercase" style={labelStyle}>
-              Dirección de origen (desde dónde se despacha)
-            </label>
-            <form onSubmit={handleSaveOrigin} className="mt-3 flex flex-col gap-3">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <input
-                  type="text"
-                  value={street}
-                  onChange={(e) => setStreet(e.target.value)}
-                  placeholder="Calle"
-                  required
-                  className="px-4 py-3 text-[14px] outline-none sm:col-span-2"
-                  style={inputStyle}
-                />
-                <input
-                  type="text"
-                  value={number}
-                  onChange={(e) => setNumber(e.target.value)}
-                  placeholder="Número"
-                  required
-                  className="px-4 py-3 text-[14px] outline-none"
-                  style={inputStyle}
-                />
-              </div>
-              <input
-                type="text"
-                value={floorApartment}
-                onChange={(e) => setFloorApartment(e.target.value)}
-                placeholder="Piso / depto (opcional)"
-                className="px-4 py-3 text-[14px] outline-none"
-                style={inputStyle}
-              />
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <input
-                  type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="Localidad"
-                  required
-                  className="px-4 py-3 text-[14px] outline-none"
-                  style={inputStyle}
-                />
-                <select
-                  value={province}
-                  onChange={(e) => setProvince(e.target.value)}
-                  required
-                  className="px-4 py-3 text-[14px] outline-none"
-                  style={inputStyle}
-                >
-                  <option value="">Provincia</option>
-                  {ARGENTINA_PROVINCES.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  value={postalCode}
-                  onChange={(e) => setPostalCode(e.target.value)}
-                  placeholder="Código postal"
-                  required
-                  className="px-4 py-3 text-[14px] outline-none"
-                  style={inputStyle}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={savingOrigin}
-                className="w-fit px-6 py-3 text-[14px] disabled:opacity-60"
-                style={{ border: '1px solid #111111', color: '#111111', backgroundColor: '#fff' }}
-              >
-                {savingOrigin ? 'Guardando...' : 'Guardar dirección →'}
-              </button>
-            </form>
-          </div>
-        </>
       )}
 
-      {mode === 'fixed_zones' && (
-        <div>
-          <label className="block text-[12px] uppercase" style={labelStyle}>
-            Montos fijos de envío
-          </label>
-          <form onSubmit={handleSaveZones} className="mt-3 flex flex-col gap-4">
-            <div>
-              <p className="text-[13px]" style={{ color: '#111111' }}>
-                Costo por defecto
-              </p>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={defaultCost}
-                onChange={(e) => setDefaultCost(e.target.value)}
-                placeholder="Ej: 3000"
-                required
-                className="mt-2 max-w-[220px] px-4 py-3 text-[15px] outline-none"
-                style={inputStyle}
-              />
-              <p className="mt-1 text-[12px]" style={{ color: '#6b6b6b' }}>
-                Se cobra para cualquier provincia que no tenga un monto propio abajo.
-              </p>
-            </div>
+      {/* Retiro: siempre disponible, no se apaga. */}
+      <section className="adm-card flex items-center gap-3 px-4 py-4 md:px-5">
+        <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[11px]" style={{ backgroundColor: '#f1f1ee' }}>
+          <Store className="h-[18px] w-[18px]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[15px] font-semibold">Retiro en el local</h3>
+          <p className="text-[13px]" style={{ color: 'var(--adm-muted)' }}>
+            Siempre disponible{pickupAddress ? ` · ${pickupAddress}` : ''}
+          </p>
+        </div>
+        <span className="adm-badge adm-b-ok">Activo</span>
+      </section>
 
-            {zones.length > 0 && (
-              <div className="flex flex-col gap-2">
+      {/* Envío a domicilio */}
+      <section className="adm-card">
+        <div className="flex items-start gap-3 px-4 pt-4 md:px-5">
+          <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[11px]" style={{ backgroundColor: 'var(--adm-info-soft)', color: 'var(--adm-info)' }}>
+            <Truck className="h-[18px] w-[18px]" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[15px] font-semibold">Envío a domicilio</h3>
+            <p className="text-[13px]" style={{ color: 'var(--adm-muted)' }}>Elegí cómo se calcula lo que paga el cliente.</p>
+          </div>
+          <Toggle checked={enabled} disabled={(!canEnable && !enabled) || savingEnabled} onChange={handleToggleEnabled} label="Envío a domicilio" />
+        </div>
+        {!canEnable && !enabled && (
+          <p className="px-4 pt-2 text-[12px] md:px-5" style={{ color: 'var(--adm-warn)' }}>
+            {mode === 'carrier'
+              ? 'Para activarlo, conectá un transportista y guardá la dirección de origen.'
+              : 'Para activarlo, cargá y guardá el costo para el resto del país.'}
+          </p>
+        )}
+
+        <div className="grid gap-4 p-4 md:p-5">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                ['fixed_zones', 'Precio fijo por provincia', 'Vos ponés cuánto cuesta. No hace falta cuenta en el correo.'],
+                ['carrier', 'Lo calcula el correo', 'Correo Argentino o Andreani cotizan según peso y destino.'],
+              ] as const
+            ).map(([m, title, desc]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => mode !== m && handleModeChange(m)}
+                disabled={savingMode}
+                className="flex items-start gap-3 rounded-[12px] p-3.5 text-left disabled:opacity-60"
+                style={{ border: mode === m ? '1.5px solid var(--adm-ink)' : '1px solid var(--adm-line)' }}
+              >
+                <span
+                  className="mt-0.5 grid h-[18px] w-[18px] flex-shrink-0 place-items-center rounded-full"
+                  style={{ border: mode === m ? '5px solid var(--adm-ink)' : '1.5px solid #c9c9c4' }}
+                />
+                <span>
+                  <span className="block text-[14px] font-medium">{title}</span>
+                  <span className="block text-[12.5px] leading-snug" style={{ color: 'var(--adm-muted)' }}>{desc}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {mode === 'fixed_zones' && (
+            <form onSubmit={handleSaveZones} className="grid gap-3">
+              <div className="overflow-hidden rounded-[12px]" style={{ border: '1px solid var(--adm-line)' }}>
+                <div className="grid grid-cols-[minmax(0,1fr)_100px_32px] gap-2 px-3 py-2 text-[12px] sm:grid-cols-[minmax(0,1fr)_160px_36px]" style={{ backgroundColor: '#fafaf8', color: 'var(--adm-muted)' }}>
+                  <span>Provincia</span>
+                  <span>Costo</span>
+                  <span />
+                </div>
                 {zones.map((z, i) => (
-                  <div key={i} className="flex flex-wrap items-center gap-2">
-                    <select
-                      value={z.province}
-                      onChange={(e) => updateZoneField(i, 'province', e.target.value)}
-                      className="min-w-[160px] flex-1 px-4 py-2.5 text-[14px] outline-none"
-                      style={inputStyle}
-                    >
+                  <div key={i} className="grid grid-cols-[minmax(0,1fr)_100px_32px] items-center gap-2 px-3 py-2 sm:grid-cols-[minmax(0,1fr)_160px_36px]" style={{ borderTop: '1px solid var(--adm-line2)' }}>
+                    <select value={z.province} onChange={(e) => updateZoneField(i, 'province', e.target.value)} className="adm-input min-w-0 !py-2">
                       <option value="">Elegir provincia</option>
-                      {ARGENTINA_PROVINCES.map((p) => (
+                      {ARGENTINA_PROVINCES.filter((p) => p === z.province || !usedProvinces.has(p)).map((p) => (
                         <option key={p} value={p}>
                           {p}
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={z.cost}
-                      onChange={(e) => updateZoneField(i, 'cost', e.target.value)}
-                      placeholder="Costo"
-                      className="w-[140px] px-4 py-2.5 text-[14px] outline-none"
-                      style={inputStyle}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeZone(i)}
-                      className="text-[13px]"
-                      style={{ color: '#6b6b6b' }}
-                    >
-                      Quitar
+                    <MoneyField value={z.cost} onChange={(v) => updateZoneField(i, 'cost', v)} />
+                    <button type="button" onClick={() => removeZone(i)} className="adm-btn adm-btn-ghost adm-btn-sm !px-2" aria-label="Quitar provincia">
+                      <Trash2 />
                     </button>
                   </div>
                 ))}
+                <div className="grid grid-cols-[minmax(0,1fr)_100px_32px] items-center gap-2 px-3 py-2 sm:grid-cols-[minmax(0,1fr)_160px_36px]" style={{ borderTop: '1px solid var(--adm-line2)' }}>
+                  <span className="text-[14px]" style={{ color: 'var(--adm-muted)' }}>
+                    Resto del país
+                  </span>
+                  <MoneyField value={defaultCost} onChange={setDefaultCost} required />
+                  <span />
+                </div>
+                <button type="button" onClick={addZone} className="flex w-full items-center gap-2 px-3 py-3 text-[13px] font-medium" style={{ borderTop: '1px solid var(--adm-line2)' }}>
+                  <Plus className="h-4 w-4" />
+                  Agregar provincia con otro precio
+                </button>
               </div>
-            )}
+              <button type="submit" disabled={savingZones} className="adm-btn adm-btn-pri w-fit">
+                {savingZones ? 'Guardando…' : 'Guardar precios'}
+              </button>
+            </form>
+          )}
 
-            <button
-              type="button"
-              onClick={addZone}
-              className="w-fit text-[13px]"
-              style={{ color: '#111111', textDecoration: 'underline' }}
-            >
-              + Agregar provincia con costo distinto
-            </button>
+          {mode === 'carrier' && (
+            <div className="grid gap-4">
+              <div className="rounded-[12px] p-3.5" style={{ border: '1px solid var(--adm-line)' }}>
+                <p className="adm-label">Transportista</p>
+                {connected ? (
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-medium">
+                        {carrier === 'andreani' ? 'Andreani' : 'Correo Argentino'}
+                        {environment === 'test' && <span className="adm-badge adm-b-warn ml-2">Prueba</span>}
+                      </p>
+                      {displayLabel && <p className="text-[12px]" style={{ color: 'var(--adm-muted)' }}>{displayLabel}</p>}
+                    </div>
+                    <button type="button" onClick={handleDisconnectClick} disabled={disconnecting} className="adm-btn adm-btn-sm">
+                      {disconnecting ? 'Desconectando…' : 'Desconectar'}
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveCredentials} className="grid gap-3">
+                    <div className="flex gap-2">
+                      {(['correo_argentino', 'andreani'] as const).map((c) => (
+                        <button key={c} type="button" onClick={() => setSelectedCarrier(c)} className="adm-chip" data-on={selectedCarrier === c}>
+                          {c === 'andreani' ? 'Andreani' : 'Correo Argentino'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="rounded-[10px] p-3 text-[13px]" style={{ backgroundColor: '#f6f6f4' }}>
+                      <p className="font-medium">¿No tenés estos datos todavía?</p>
+                      {selectedCarrier === 'correo_argentino' ? (
+                        <p className="mt-1" style={{ color: 'var(--adm-muted)' }}>
+                          Pedí el alta como cliente con contrato en{' '}
+                          <a href="https://integracion.correoargentino.com.ar" target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--adm-ink)' }}>
+                            integracion.correoargentino.com.ar
+                          </a>{' '}
+                          (o en cualquier sucursal comercial). Te dan User Token, Password Token y Customer ID: los tres campos de abajo.
+                        </p>
+                      ) : (
+                        <p className="mt-1" style={{ color: 'var(--adm-muted)' }}>
+                          Date de alta como Andreani PyME con acceso a la API en{' '}
+                          <a href="https://pymes.andreani.com/integraciones" target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--adm-ink)' }}>
+                            pymes.andreani.com/integraciones
+                          </a>
+                          . Te dan Usuario, Contraseña y Código de contrato: los tres campos de abajo.
+                        </p>
+                      )}
+                    </div>
+                    {selectedCarrier === 'correo_argentino' ? (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <input value={userToken} onChange={(e) => setUserToken(e.target.value)} placeholder="User Token" required className="adm-input" />
+                        <input type="password" value={passwordToken} onChange={(e) => setPasswordToken(e.target.value)} placeholder="Password Token" required className="adm-input" />
+                        <input value={customerId} onChange={(e) => setCustomerId(e.target.value)} placeholder="Customer ID" required className="adm-input sm:col-span-2" />
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Usuario" required className="adm-input" />
+                        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" required className="adm-input" />
+                        <input value={contrato} onChange={(e) => setContrato(e.target.value)} placeholder="Código de contrato" required className="adm-input sm:col-span-2" />
+                      </div>
+                    )}
+                    <label className="flex items-center gap-2 text-[13px]" style={{ color: 'var(--adm-muted)' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedEnvironment === 'test'}
+                        onChange={(e) => setSelectedEnvironment(e.target.checked ? 'test' : 'production')}
+                        className="adm-check"
+                      />
+                      Son credenciales de prueba
+                    </label>
+                    <button type="submit" disabled={savingCredentials} className="adm-btn adm-btn-pri w-fit">
+                      {savingCredentials ? 'Conectando…' : 'Conectar transportista'}
+                    </button>
+                  </form>
+                )}
+              </div>
 
-            <button
-              type="submit"
-              disabled={savingZones}
-              className="w-fit px-6 py-3 text-[14px] disabled:opacity-60"
-              style={{ border: '1px solid #111111', color: '#111111', backgroundColor: '#fff' }}
-            >
-              {savingZones ? 'Guardando...' : 'Guardar montos →'}
+              <form onSubmit={handleSaveOrigin} className="grid gap-3 rounded-[12px] p-3.5" style={{ border: '1px solid var(--adm-line)' }}>
+                <div>
+                  <p className="adm-label !mb-0">Desde dónde despachás</p>
+                  <p className="text-[12px]" style={{ color: 'var(--adm-muted)' }}>El correo cotiza desde esta dirección.</p>
+                </div>
+                <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-3 sm:grid-cols-[minmax(0,1fr)_120px_160px]">
+                  <input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Calle" required className="adm-input" />
+                  <input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="Número" required className="adm-input" />
+                  <input value={floorApartment} onChange={(e) => setFloorApartment(e.target.value)} placeholder="Piso / depto" className="adm-input col-span-2 sm:col-span-1" />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Localidad" required className="adm-input" />
+                  <select value={province} onChange={(e) => setProvince(e.target.value)} required className="adm-input">
+                    <option value="">Provincia</option>
+                    {ARGENTINA_PROVINCES.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                  <input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="Código postal" required className="adm-input" />
+                </div>
+                <button type="submit" disabled={savingOrigin} className="adm-btn w-fit">
+                  {savingOrigin ? 'Guardando…' : 'Guardar dirección'}
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Envío gratis */}
+      <section className="adm-card">
+        <div className="flex items-start gap-3 px-4 py-4 md:px-5">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[15px] font-semibold">Envío gratis</h3>
+            <p className="text-[13px]" style={{ color: 'var(--adm-muted)' }}>Para compras desde cierto monto. El envío lo absorbés vos y ayuda a que compren más.</p>
+          </div>
+          <Toggle checked={freeOn} disabled={savingThreshold} onChange={handleFreeToggle} label="Envío gratis" />
+        </div>
+        {freeOn && (
+          <form onSubmit={handleSaveThreshold} className="flex flex-wrap items-end gap-3 px-4 pb-4 md:px-5">
+            <Field label="Gratis desde" className="w-[200px]">
+              <MoneyField value={threshold} onChange={setThreshold} required />
+            </Field>
+            <button type="submit" disabled={savingThreshold} className="adm-btn adm-btn-pri">
+              {savingThreshold ? 'Guardando…' : 'Guardar'}
             </button>
           </form>
-        </div>
-      )}
+        )}
+      </section>
+    </div>
+  )
+}
 
-      {/* Envío gratis a partir de un monto */}
-      <div>
-        <label className="block text-[12px] uppercase" style={labelStyle}>
-          Envío gratis a partir de (opcional)
-        </label>
-        <form onSubmit={handleSaveThreshold} className="mt-3 flex items-center gap-2">
-          <input
-            type="number"
-            min={0}
-            step="0.01"
-            value={threshold}
-            onChange={(e) => setThreshold(e.target.value)}
-            placeholder="Dejalo vacío para nunca absorber el envío"
-            className="max-w-[320px] flex-1 px-4 py-3 text-[15px] outline-none"
-            style={inputStyle}
-          />
-          <button
-            type="submit"
-            disabled={savingThreshold}
-            className="px-4 py-3 text-[13px] disabled:opacity-60"
-            style={{ border: '1px solid #111111', color: '#111111', backgroundColor: '#fff' }}
-          >
-            {savingThreshold ? 'Guardando...' : 'Guardar →'}
-          </button>
-        </form>
-        <p className="mt-1 text-[12px]" style={{ color: '#6b6b6b' }}>
-          Si el subtotal del carrito llega a este monto, el envío le sale gratis al cliente y lo
-          absorbés vos. Vacío = el cliente siempre paga el envío calculado.
-        </p>
-      </div>
-
-      {/* Habilitar */}
-      <div className="flex items-center gap-3">
-        <input
-          type="checkbox"
-          id="shipping_enabled"
-          checked={enabled}
-          disabled={!canEnable || savingEnabled}
-          onChange={(e) => handleToggleEnabled(e.target.checked)}
-          className="h-4 w-4"
-        />
-        <label
-          htmlFor="shipping_enabled"
-          className="text-[14px]"
-          style={{ color: canEnable ? '#111111' : '#6b6b6b' }}
-        >
-          Habilitar envío calculado en la tienda
-        </label>
-      </div>
-      {!canEnable && (
-        <p className="text-[12px]" style={{ color: '#6b6b6b' }}>
-          {mode === 'carrier'
-            ? 'Para habilitar esto primero conectá un transportista y guardá la dirección de origen (con código postal).'
-            : 'Para habilitar esto primero cargá y guardá un costo de envío por defecto.'}
-        </p>
-      )}
+function MoneyField({ value, onChange, required }: { value: string; onChange: (v: string) => void; required?: boolean }) {
+  return (
+    <div className="relative min-w-0">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px]" style={{ color: 'var(--adm-soft)' }}>
+        $
+      </span>
+      <input
+        type="number"
+        min={0}
+        step="0.01"
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        placeholder="0"
+        className="adm-input !py-2 !pl-6"
+      />
     </div>
   )
 }
