@@ -1,5 +1,6 @@
 'use server'
 
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { CartItem } from '@/components/cart-context'
 import { invokeMercadoPagoFunction } from '@/lib/mercadopago'
@@ -52,7 +53,19 @@ export async function createPendingOrder(
     return null
   }
 
+  notifyOwnerOfNewOrder(supabase, orderId)
   return orderId
+}
+
+// Mail "Tenés un pedido nuevo" al dueño para pedidos por WhatsApp o transferencia (los de Mercado
+// Pago avisan solos desde mercadopago-webhook al aprobarse el pago). Va en after() para no demorar
+// que se abra WhatsApp o la pantalla de transferencia, y un fallo solo se loguea: el pedido ya
+// quedó creado.
+function notifyOwnerOfNewOrder(supabase: Awaited<ReturnType<typeof createClient>>, orderId: string) {
+  after(async () => {
+    const { error } = await supabase.functions.invoke('aviso-pedido-nuevo', { body: { storeOrderId: orderId } })
+    if (error) console.error('notifyOwnerOfNewOrder: aviso-pedido-nuevo falló', orderId, error.message)
+  })
 }
 
 // Pedido con pago online. A diferencia de createPendingOrder, acá sí importa el precio: el
@@ -265,6 +278,7 @@ export async function createTransferOrder(
   try {
     const supabase = await createClient()
     const { orderId } = await buildOnlineOrder(supabase, organizationId, branchId, items, delivery, 'transfer')
+    notifyOwnerOfNewOrder(supabase, orderId)
     return { orderId }
   } catch (err) {
     console.error('createTransferOrder:', err instanceof Error ? err.message : err)
