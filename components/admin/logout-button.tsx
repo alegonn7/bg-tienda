@@ -1,26 +1,15 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { LogOut } from 'lucide-react'
+import { signOut } from '@/components/admin/admin-nav'
 
-export function LogoutButton() {
+export function LogoutButton({ withLabel = true }: { withLabel?: boolean }) {
   const router = useRouter()
-  const supabase = createClient()
-
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push('/admin/login')
-    router.refresh()
-  }
-
   return (
-    <button
-      type="button"
-      onClick={handleLogout}
-      className="text-[13px]"
-      style={{ color: '#d81b8a' }}
-    >
-      Salir
+    <button type="button" onClick={() => signOut(router)} className="adm-btn adm-btn-sm" aria-label="Cerrar sesión">
+      <LogOut />
+      {withLabel && 'Salir'}
     </button>
   )
 }

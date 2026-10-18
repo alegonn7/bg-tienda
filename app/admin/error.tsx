@@ -18,10 +18,8 @@ export default function AdminError({
 
   return (
     <div className="mx-auto flex max-w-[480px] flex-col items-center gap-4 px-6 py-24 text-center">
-      <p className="text-[16px]" style={{ color: '#111111' }}>
-        Uh, algo salió mal.
-      </p>
-      <p className="text-[14px]" style={{ color: '#6b6b6b' }}>
+      <p className="text-[17px] font-semibold">Uh, algo salió mal.</p>
+      <p className="adm-hint text-[14px]">
         Volvé a intentarlo en unos segundos.
         {error.digest && (
           <>
@@ -30,8 +28,8 @@ export default function AdminError({
           </>
         )}
       </p>
-      <button type="button" onClick={() => reset()} className="pc-btn px-6 py-3 text-[14px]">
-        Reintentar →
+      <button type="button" onClick={() => reset()} className="adm-btn adm-btn-pri">
+        Reintentar
       </button>
     </div>
   )

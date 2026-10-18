@@ -11,7 +11,7 @@ function revalidateStorefront() {
   // No conocemos el slug puntual acá sin una query extra — se invalida el segmento dinámico
   // completo (todas las tiendas), soportado nativamente por Next.js.
   revalidatePath('/[slug]', 'layout')
-  revalidatePath('/admin')
+  revalidatePath('/admin', 'layout')
 }
 
 type ProductData = {
@@ -21,6 +21,7 @@ type ProductData = {
   images: string[]
   sizes: string[]
   active: boolean
+  featured?: boolean
   price: number
   cost: number
   stock: number
@@ -45,6 +46,7 @@ export async function createProduct(data: ProductData) {
       images: data.images,
       sizes: data.sizes,
       is_active: data.active,
+      featured: data.featured ?? false,
       weight_grams: data.weightGrams ?? null,
       length_cm: data.lengthCm ?? null,
       width_cm: data.widthCm ?? null,
@@ -80,6 +82,7 @@ export async function updateProduct(id: string, productBranchId: string, data: P
       images: data.images,
       sizes: data.sizes,
       is_active: data.active,
+      featured: data.featured ?? false,
       weight_grams: data.weightGrams ?? null,
       length_cm: data.lengthCm ?? null,
       width_cm: data.widthCm ?? null,
@@ -139,7 +142,56 @@ export async function toggleProductActive(id: string, active: boolean) {
   revalidateStorefront()
 }
 
+// Acciones sobre varios productos a la vez (lista de productos, seleccionando con los checkbox).
+export async function bulkSetProductsActive(ids: string[], active: boolean) {
+  await getOrgParaEditar()
+  if (!ids.length) return
+  const supabase = await createClient()
+  const { error } = await supabase.from('products').update({ is_active: active }).in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidateStorefront()
+}
+
+export async function bulkSetProductsCategory(ids: string[], categoryId: string) {
+  await getOrgParaEditar()
+  if (!ids.length) return
+  const supabase = await createClient()
+  const { error } = await supabase.from('products').update({ category_id: categoryId || null }).in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidateStorefront()
+}
+
+// Sube o baja el precio de venta un porcentaje (ej. 10 = +10%, -5 = -5%), redondeado a pesos
+// enteros. Una fila por vez porque cada producto queda con un precio distinto; son pocos (lo que
+// el dueño tildó en pantalla), no vale la pena un RPC.
+export async function bulkAdjustProductsPrice(productBranchIds: string[], percent: number) {
+  await getOrgParaEditar()
+  if (!productBranchIds.length || !Number.isFinite(percent) || percent === 0) return
+  if (percent <= -100) throw new Error('El porcentaje tiene que ser mayor a -100%.')
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('products_branch').select('id, price_sale').in('id', productBranchIds)
+  if (error) throw new Error(error.message)
+  for (const row of data ?? []) {
+    if (row.price_sale == null) continue
+    const next = Math.round(Number(row.price_sale) * (1 + percent / 100))
+    const { error: upError } = await supabase.from('products_branch').update({ price_sale: next }).eq('id', row.id)
+    if (upError) throw new Error(upError.message)
+  }
+  revalidateStorefront()
+}
+
 // Categorías
+export async function updateCategory(id: string, name: string) {
+  await getOrgParaEditar()
+  const clean = name.trim()
+  if (!clean) throw new Error('El nombre no puede quedar vacío.')
+  const supabase = await createClient()
+  const { error } = await supabase.from('categories').update({ name: clean }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/categorias')
+  revalidateStorefront()
+}
+
 export async function createCategory(name: string) {
   const ctx = await getOrgParaEditar()
 
@@ -199,6 +251,31 @@ export async function deleteHeroImage(id: string) {
   revalidateStorefront()
 }
 
+// Cambia el orden del banner: ids en el orden nuevo, position = índice.
+export async function reorderHeroImages(ids: string[]) {
+  await getOrgParaEditar()
+  const supabase = await createClient()
+  for (const [position, id] of ids.entries()) {
+    const { error } = await supabase.from('hero_images').update({ position }).eq('id', id)
+    if (error) throw new Error(error.message)
+  }
+  revalidatePath('/admin/hero')
+  revalidateStorefront()
+}
+
+// Título y subtítulo que se ven sobre el banner (viven en store_settings).
+export async function updateHeroText(title: string, subtitle: string) {
+  const ctx = await getOrgParaEditar()
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('store_settings')
+    .update({ hero_title: title.trim() || null, hero_subtitle: subtitle.trim() || null })
+    .eq('id', ctx.storeSettingsId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/hero')
+  revalidateStorefront()
+}
+
 // Pedidos
 // Confirma a mano un pedido pending (WhatsApp o transferencia). Pasa por la Edge Function
 // confirm-store-order en vez de llamar el RPC directo -- necesita mandar el email de "pago
@@ -247,13 +324,11 @@ export async function markOrderShipped(orderId: string, trackingCode: string) {
   revalidatePath('/admin/pedidos')
 }
 
-// Branding de la tienda — nombre público, textos del hero, color, contacto. El slug (URL de la
+// Branding de la tienda — nombre público, color, contacto. El slug (URL de la
 // tienda) NO se edita desde acá a propósito: cambiarlo rompe links ya compartidos, queda del
 // lado de admin-gestion/soporte.
 type StoreBrandingData = {
   storeName: string
-  heroTitle: string
-  heroSubtitle: string
   accentColor: string
   whatsappNumber: string
   instagramUrl: string
@@ -270,8 +345,6 @@ export async function updateStoreBranding(data: StoreBrandingData) {
     .from('store_settings')
     .update({
       store_name: data.storeName || null,
-      hero_title: data.heroTitle || null,
-      hero_subtitle: data.heroSubtitle || null,
       accent_color: data.accentColor || null,
       whatsapp_number: data.whatsappNumber || null,
       instagram_url: data.instagramUrl || null,

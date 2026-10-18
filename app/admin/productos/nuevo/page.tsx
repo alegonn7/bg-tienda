@@ -1,33 +1,40 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getAdminProduct } from '@/lib/products-server'
 import { getOrgForAdminRead } from '@/lib/tenant'
 import { ProductForm } from '@/components/admin/product-form'
+import { Page, PageHeader } from '@/components/admin/ui'
 
-export default async function NuevoProductoPage() {
+export default async function NuevoProductoPage({
+  searchParams,
+}: {
+  // ?duplicar=<id>: arranca con los datos de otro producto (botón "Duplicar" de editar).
+  searchParams: Promise<{ duplicar?: string }>
+}) {
   const ctx = await getOrgForAdminRead()
   if (!ctx) notFound()
 
+  const { duplicar } = await searchParams
   const supabase = await createClient()
-  const [{ data: categories }, { data: sizes }] = await Promise.all([
+  const [{ data: categories }, { data: sizes }, copyFrom] = await Promise.all([
     supabase.from('categories').select('*').order('name'),
     supabase.from('sizes').select('*').order('name'),
+    duplicar ? getAdminProduct(ctx.onlineBranchId, duplicar) : Promise.resolve(null),
   ])
 
   return (
-    <div className="mx-auto max-w-[700px] px-8 py-10">
-      <div className="mb-8">
-        <Link href="/admin" className="text-[13px]" style={{ color: '#6b6b6b' }}>
-          ← Volver
-        </Link>
-        <h1 className="mt-4 text-[24px] font-medium" style={{ color: '#111111' }}>
-          Nuevo producto
-        </h1>
-      </div>
-
-      <div className="p-8" style={{ backgroundColor: '#fff', border: '1px solid #e5e5e5' }}>
-        <ProductForm categories={categories ?? []} sizes={sizes ?? []} organizationId={ctx.organizationId} />
-      </div>
-    </div>
+    <Page width={1180}>
+      <PageHeader
+        sub
+        title={copyFrom ? 'Duplicar producto' : 'Nuevo producto'}
+        back={{ href: '/admin/productos', label: 'Productos' }}
+      />
+      <ProductForm
+        copyFrom={copyFrom ?? undefined}
+        categories={categories ?? []}
+        sizes={sizes ?? []}
+        organizationId={ctx.organizationId}
+      />
+    </Page>
   )
 }

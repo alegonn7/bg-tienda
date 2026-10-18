@@ -1,3 +1,4 @@
+import { CreditCard, MessageCircle, Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { CancelarSuscripcionButton } from '@/components/admin/cancelar-suscripcion-button'
 import { ReactivarSuscripcionButton } from '@/components/admin/reactivar-suscripcion'
@@ -11,12 +12,12 @@ export const WHATSAPP_SOPORTE_URL = `https://wa.me/542241527649?text=${encodeURI
   'Hola! Tengo una consulta sobre la suscripción de mi tienda en BG Tienda.',
 )}`
 
-const ESTADOS: Record<string, string> = {
-  pending: 'Esperando el primer pago',
-  trial: 'Prueba',
-  active: 'Activa',
-  past_due: 'Pago atrasado',
-  suspended: 'Suspendida',
+const ESTADOS: Record<string, [string, string]> = {
+  pending: ['Esperando el primer pago', 'adm-b-warn'],
+  trial: ['Prueba', 'adm-b-info'],
+  active: ['Activa', 'adm-b-ok'],
+  past_due: ['Pago atrasado', 'adm-b-warn'],
+  suspended: ['Suspendida', 'adm-b-bad'],
 }
 
 const ESTADOS_PAGO: Record<string, string> = {
@@ -84,81 +85,113 @@ export async function SuscripcionResumen({
 
   if (!sub) {
     return (
-      <p className="text-[14px]" style={{ color: '#6b6b6b' }}>
-        Tu tienda no tiene una suscripción automática. Si tenés dudas sobre tu plan,{' '}
-        <a href={WHATSAPP_SOPORTE_URL} className="underline" target="_blank" rel="noreferrer">
-          escribinos por WhatsApp
-        </a>
-        .
-      </p>
+      <div className="adm-card p-5">
+        <p className="text-[14px]" style={{ color: 'var(--adm-muted)' }}>
+          Tu tienda no tiene una suscripción automática. Si tenés dudas sobre tu plan,{' '}
+          <a href={WHATSAPP_SOPORTE_URL} className="underline" target="_blank" rel="noreferrer">
+            escribinos por WhatsApp
+          </a>
+          .
+        </p>
+      </div>
     )
   }
 
-  const filas: [string, string][] = [
-    ['Plan', 'BG Tienda'],
-    ['Estado', ESTADOS[subscriptionStatus ?? ''] ?? subscriptionStatus ?? '—'],
-    ['Cuota mensual', formatArs(sub.full_amount)],
-  ]
+  const [estado, tono] = ESTADOS[subscriptionStatus ?? ''] ?? [subscriptionStatus ?? '—', 'adm-b-gray']
+  const datos: [string, string][] = []
   if (sub.cancelled_at) {
-    filas.push(['Cancelada el', formatFecha(sub.cancelled_at)])
-    if (org?.subscription_ends_at) filas.push(['Activa hasta', formatFecha(org.subscription_ends_at)])
+    datos.push(['Cancelada el', formatFecha(sub.cancelled_at)])
+    if (org?.subscription_ends_at) datos.push(['Activa hasta', formatFecha(org.subscription_ends_at)])
   } else if (sub.next_payment_date) {
-    filas.push(['Próximo cobro', `${formatFecha(sub.next_payment_date)} · ${formatArs(sub.current_amount)}`])
+    datos.push(['Próximo cobro', `${formatFecha(sub.next_payment_date)} · ${formatArs(sub.current_amount)}`])
   }
+  datos.push(['Cuota mensual', formatArs(sub.full_amount)], ['Se paga con', 'Mercado Pago'])
+
+  const puedeCancelar = esDueno && sub.mp_preapproval_id && !sub.cancelled_at && subscriptionStatus !== 'suspended'
+  // Sin mp_preapproval_id pero con plan: un link de reactivación que todavía no se pagó.
+  const puedeReactivar = esDueno && (sub.mp_preapproval_id || sub.mp_plan_id) && (sub.cancelled_at || subscriptionStatus === 'suspended')
 
   return (
-    <div>
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-[14px]">
-        {filas.map(([k, v]) => (
-          <div key={k} className="contents">
-            <dt style={{ color: '#6b6b6b' }}>{k}</dt>
-            <dd style={{ color: '#111111' }}>{v}</dd>
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+      <div className="grid min-w-0 gap-4">
+        <section className="adm-card overflow-hidden">
+          <div className="flex items-center gap-3 p-4 md:p-5">
+            <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-[12px]" style={{ backgroundColor: 'var(--adm-ink)', color: '#fff' }}>
+              <Store className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold">
+                BG Tienda <span className={`adm-badge ${tono}`}>{estado}</span>
+              </p>
+              <p className="text-[13px]" style={{ color: 'var(--adm-muted)' }}>Se cobra sola todos los meses con Mercado Pago</p>
+            </div>
+            <p className="hidden text-right sm:block">
+              <span className="text-[26px] font-semibold tracking-[-0.02em]">{formatArs(sub.full_amount)}</span>
+              <span className="text-[13px]" style={{ color: 'var(--adm-soft)' }}>/mes</span>
+            </p>
           </div>
-        ))}
-      </dl>
-
-      <p className="mt-6 text-[13px]" style={{ color: '#6b6b6b' }}>
-        La cuota se cobra sola cada mes con Mercado Pago. Para cambiar la tarjeta, entrá a{' '}
-        <a href={MP_SUSCRIPCIONES_URL} className="underline" target="_blank" rel="noreferrer">
-          tus suscripciones en Mercado Pago
-        </a>
-        . Si cancelás, la tienda sigue activa hasta el final del mes que ya pagaste.
-      </p>
-
-      {esDueno && sub.mp_preapproval_id && !sub.cancelled_at && subscriptionStatus !== 'suspended' && (
-        <CancelarSuscripcionButton activaHasta={finDelPeriodo(pagos ?? [])} />
-      )}
-      {/* Sin mp_preapproval_id pero con plan: un link de reactivación que todavía no se pagó. */}
-      {esDueno && (sub.mp_preapproval_id || sub.mp_plan_id) && (sub.cancelled_at || subscriptionStatus === 'suspended') && (
-        <ReactivarSuscripcionButton mensaje={mensajeReactivar(subscriptionStatus, org?.subscription_ends_at ?? null, sub.full_amount)} />
-      )}
-
-      <h3 className="mt-8 mb-3 text-[14px] font-medium" style={{ color: '#111111' }}>
-        Pagos
-      </h3>
-      {pagos && pagos.length > 0 ? (
-        <table className="w-full text-[13px]">
-          <tbody>
-            {pagos.map((p) => (
-              <tr key={p.id} style={{ borderTop: '1px solid #e5e5e5' }}>
-                <td className="py-2" style={{ color: '#6b6b6b' }}>
-                  {formatFecha(p.debit_date)}
-                </td>
-                <td className="py-2" style={{ color: '#111111' }}>
-                  {formatArs(p.amount)}
-                </td>
-                <td className="py-2 text-right" style={{ color: p.status === 'approved' ? '#15803d' : '#b91c1c' }}>
-                  {ESTADOS_PAGO[p.status] ?? p.status}
-                </td>
-              </tr>
+          <dl className="grid sm:grid-cols-3" style={{ borderTop: '1px solid var(--adm-line2)' }}>
+            {datos.map(([k, v], i) => (
+              <div
+                key={k}
+                className="flex items-center justify-between gap-3 px-4 py-3 sm:block md:px-5"
+                style={i > 0 ? { borderTop: '1px solid var(--adm-line2)' } : undefined}
+              >
+                <dt className="text-[12px]" style={{ color: 'var(--adm-muted)' }}>{k}</dt>
+                <dd className="text-right text-[14px] font-medium sm:text-left">{v}</dd>
+              </div>
             ))}
-          </tbody>
-        </table>
-      ) : (
-        <p className="text-[13px]" style={{ color: '#6b6b6b' }}>
-          Todavía no hay pagos registrados.
-        </p>
-      )}
+          </dl>
+        </section>
+
+        {puedeReactivar && (
+          <ReactivarSuscripcionButton mensaje={mensajeReactivar(subscriptionStatus, org?.subscription_ends_at ?? null, sub.full_amount)} />
+        )}
+
+        <section className="adm-card overflow-hidden">
+          <div className="adm-card-h">
+            <h3>Últimos pagos</h3>
+          </div>
+          {pagos && pagos.length > 0 ? (
+            <ul>
+              {pagos.map((p, i) => (
+                <li key={p.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-4 py-3 text-[14px] md:px-5" style={i > 0 ? { borderTop: '1px solid var(--adm-line2)' } : undefined}>
+                  <span>{formatFecha(p.debit_date)}</span>
+                  <span className="font-medium">{formatArs(p.amount)}</span>
+                  <span className={`adm-badge ${p.status === 'approved' ? 'adm-b-ok' : p.status === 'pending' || p.status === 'in_process' ? 'adm-b-warn' : 'adm-b-bad'}`}>
+                    {ESTADOS_PAGO[p.status] ?? p.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="adm-hint px-4 py-4 md:px-5">Todavía no hay pagos registrados.</p>
+          )}
+        </section>
+      </div>
+
+      <aside className="grid gap-4">
+        <section className="adm-card p-4 md:p-5">
+          <h3 className="adm-h3">¿Necesitás ayuda?</h3>
+          <p className="adm-hint mt-0.5 text-[13px]">Escribinos y te respondemos por WhatsApp.</p>
+          <a href={WHATSAPP_SOPORTE_URL} target="_blank" rel="noreferrer" className="adm-btn adm-btn-acc adm-btn-sm mt-3">
+            <MessageCircle />
+            Hablar con soporte
+          </a>
+        </section>
+        <section className="adm-card p-4 md:p-5">
+          <h3 className="adm-h3">Cambiar tarjeta{puedeCancelar ? ' o cancelar' : ''}</h3>
+          <p className="adm-hint mt-0.5 text-[13px]">
+            La tarjeta se cambia desde tus suscripciones en Mercado Pago.
+            {puedeCancelar && ' Si cancelás, la tienda sigue online hasta el final del mes que ya pagaste.'}
+          </p>
+          <a href={MP_SUSCRIPCIONES_URL} target="_blank" rel="noreferrer" className="adm-btn adm-btn-sm mt-3">
+            <CreditCard />
+            Cambiar tarjeta en Mercado Pago
+          </a>
+          {puedeCancelar && <CancelarSuscripcionButton activaHasta={finDelPeriodo(pagos ?? [])} />}
+        </section>
+      </aside>
     </div>
   )
 }
