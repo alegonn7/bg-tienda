@@ -7,7 +7,7 @@ import { FeaturedCarousel } from '@/components/featured-carousel'
 import { ProductGallery } from '@/components/product-gallery'
 import { ProductPurchase } from '@/components/product-purchase'
 import { getProduct, getProducts } from '@/lib/products-server'
-import { hasDiscount } from '@/lib/products'
+import { categoryLabel, hasDiscount } from '@/lib/products'
 import { getStoreBySlug, type Store } from '@/lib/tenant'
 import { freeShippingFrom, paymentLabels, pickupText } from '@/lib/store-info'
 import { formatPrice } from '@/lib/format'
@@ -149,7 +149,7 @@ export default async function ProductDetailPage({
             <>
               <ChevronRight className="h-3.5 w-3.5" />
               <Link href={`${base}/productos?categoria=${encodeURIComponent(product.category)}`} className="hover:underline">
-                {product.category}
+                {categoryLabel(product.category)}
               </Link>
             </>
           )}
@@ -165,7 +165,7 @@ export default async function ProductDetailPage({
           <div className="pt-4 md:pt-0">
             {product.category && (
               <p className="text-[14px]" style={{ color: 'var(--st-mut)' }}>
-                {product.category}
+                {categoryLabel(product.category)}
               </p>
             )}
             <h1 className="mt-1 text-[25px] font-bold leading-[1.1] tracking-[-0.02em] md:mt-1.5 md:text-[34px]">{product.name}</h1>

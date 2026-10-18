@@ -11,6 +11,7 @@ import { getFeaturedProducts, getProducts, getStoreCategories } from '@/lib/prod
 import { getStoreBySlug } from '@/lib/tenant'
 import { createPublicClient } from '@/lib/supabase/public'
 import { FEATURE_ICONS } from '@/lib/feature-icons'
+import { categoryLabel } from '@/lib/products'
 import { storeBenefits, storeName, whatsappUrl } from '@/lib/store-info'
 
 // Título, description y Open Graph vienen de app/[slug]/layout.tsx; acá solo el canonical, que
@@ -86,15 +87,19 @@ export default async function HomePage({ params }: { params: Promise<{ slug: str
               <Link
                 key={c.name}
                 href={`${base}/productos?categoria=${encodeURIComponent(c.name)}`}
-                className="relative h-[150px] w-[132px] flex-shrink-0 overflow-hidden rounded-[14px] md:aspect-[1/1.08] md:h-auto md:w-auto md:rounded-[18px]"
+                className="relative h-[156px] w-[140px] flex-shrink-0 overflow-hidden rounded-[14px] md:aspect-[1/1.08] md:h-auto md:w-auto md:rounded-[18px]"
                 style={{ backgroundColor: 'var(--st-sf)' }}
               >
-                {c.image && (
+                {c.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={c.image} alt="" loading="lazy" className="h-full w-full object-cover" />
+                ) : (
+                  <span aria-hidden className="grid h-full place-items-center pb-12 text-[44px] font-bold md:text-[64px]" style={{ color: 'var(--st-line)' }}>
+                    {categoryLabel(c.name).charAt(0)}
+                  </span>
                 )}
-                <span className="absolute inset-x-2 bottom-2 flex items-center justify-between gap-2 rounded-[9px] bg-white px-2.5 py-2 text-[13px] font-semibold md:inset-x-3.5 md:bottom-3.5 md:rounded-xl md:px-3 md:py-2.5 md:text-[15px]">
-                  <span className="truncate">{c.name}</span>
+                <span className="absolute inset-x-2 bottom-2 flex items-center justify-between gap-2 rounded-[9px] bg-white px-2.5 py-2 text-[13px] font-semibold leading-tight md:inset-x-3.5 md:bottom-3.5 md:rounded-xl md:px-3 md:py-2.5 md:text-[15px]">
+                  <span className="line-clamp-2 min-w-0 [overflow-wrap:anywhere]">{categoryLabel(c.name)}</span>
                   <small className="hidden text-[13px] font-medium md:inline" style={{ color: 'var(--st-mut)' }}>
                     {c.count}
                   </small>
