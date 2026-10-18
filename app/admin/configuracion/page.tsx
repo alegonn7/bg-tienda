@@ -23,7 +23,7 @@ export default async function ConfiguracionPage({
   const { data: storeSettings } = await supabase
     .from('store_settings')
     .select(
-      'show_prices, payment_online_enabled, shipping_enabled, free_shipping_threshold, shipping_pricing_mode, fixed_shipping_default_cost, fixed_shipping_zones, whatsapp_orders_enabled, whatsapp_number, transfer_enabled, transfer_cbu, transfer_alias, transfer_receipt_email'
+      'show_prices, payment_online_enabled, shipping_enabled, free_shipping_threshold, shipping_pricing_mode, fixed_shipping_default_cost, fixed_shipping_zones, whatsapp_orders_enabled, whatsapp_number, transfer_enabled, transfer_cbu, transfer_alias, transfer_receipt_email, extra'
     )
     .eq('id', ctx.storeSettingsId)
     .single()
@@ -58,7 +58,7 @@ export default async function ConfiguracionPage({
         ))}
       </nav>
 
-      {envios ? <Envios settings={storeSettings} /> : <Pagos settings={storeSettings} mpConnected={mp_connected === '1'} mpError={mp_error} />}
+      {envios ? <Envios settings={storeSettings} branchId={ctx.onlineBranchId} /> : <Pagos settings={storeSettings} mpConnected={mp_connected === '1'} mpError={mp_error} />}
     </Page>
   )
 }
@@ -68,6 +68,7 @@ type Settings = {
   payment_online_enabled: boolean
   shipping_enabled: boolean
   free_shipping_threshold: number | null
+  extra: Record<string, unknown> | null
   shipping_pricing_mode: string
   fixed_shipping_default_cost: number | null
   fixed_shipping_zones: unknown
@@ -91,17 +92,24 @@ async function Pagos({ settings, mpConnected, mpError }: { settings: Settings; m
   )
 }
 
-async function Envios({ settings }: { settings: Settings }) {
-  const shippingStatus = await getShippingStatus().catch(() => ({
-    connected: false,
-    carrier: null,
-    displayLabel: null,
-    environment: null,
-    origin: null,
-  }))
+async function Envios({ settings, branchId }: { settings: Settings; branchId: string }) {
+  const supabase = await createClient()
+  const [{ data: branch }, shippingStatus] = await Promise.all([
+    supabase.from('branches').select('address').eq('id', branchId).maybeSingle(),
+    getShippingStatus().catch(() => ({
+      connected: false,
+      carrier: null,
+      displayLabel: null,
+      environment: null,
+      origin: null,
+    })),
+  ])
+  const branchAddress = (branch?.address as string | null)?.trim() || null
   return (
     <ShippingSettingsForm
-      pickupAddress={null}
+      branchAddress={branchAddress}
+      pickupAddress={typeof settings.extra?.pickup_address === 'string' ? settings.extra.pickup_address : ''}
+      pickupHours={typeof settings.extra?.pickup_hours === 'string' ? settings.extra.pickup_hours : ''}
       connected={shippingStatus.connected}
       carrier={shippingStatus.carrier as 'correo_argentino' | 'andreani' | null}
       displayLabel={shippingStatus.displayLabel}

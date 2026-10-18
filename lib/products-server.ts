@@ -22,6 +22,7 @@ type CatalogRow = {
   price_sale: number | null
   stock_quantity: number | null
   created_at: string
+  compare_at_price: number | null
 }
 
 function mapCatalogRow(row: CatalogRow): Product {
@@ -36,6 +37,7 @@ function mapCatalogRow(row: CatalogRow): Product {
     featured: row.featured,
     created_at: row.created_at,
     price: row.price_sale,
+    compareAtPrice: row.compare_at_price ?? null,
     stock: row.stock_quantity,
     productBranchId: row.product_branch_id,
   }
@@ -65,6 +67,29 @@ export async function getFeaturedProducts(organizationId: string): Promise<Produ
   if (error) throw new Error(`getFeaturedProducts: ${error.message}`)
   return (data ?? []).map(mapCatalogRow)
 }
+
+export type StoreCategory = { name: string; count: number; image: string | null }
+
+// Categorías con productos visibles, para el menú, el pie y los mosaicos del inicio. Se derivan
+// de store_catalog (lo único público, ver Fase 04); la imagen es la del primer producto con foto.
+export const getStoreCategories = cache(async (organizationId: string): Promise<StoreCategory[]> => {
+  const supabase = createPublicClient()
+  const { data, error } = await supabase
+    .from('store_catalog')
+    .select('category_name, images')
+    .eq('organization_id', organizationId)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(`getStoreCategories: ${error.message}`)
+  const byName = new Map<string, StoreCategory>()
+  for (const row of (data ?? []) as { category_name: string | null; images: string[] | null }[]) {
+    if (!row.category_name) continue
+    const cat = byName.get(row.category_name) ?? { name: row.category_name, count: 0, image: null }
+    cat.count++
+    if (!cat.image && row.images?.[0]) cat.image = row.images[0]
+    byName.set(row.category_name, cat)
+  }
+  return [...byName.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+})
 
 // cache(): generateMetadata y la página del producto lo piden con los mismos argumentos en el
 // mismo request; así se consulta a Supabase una sola vez.

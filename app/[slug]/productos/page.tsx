@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { SiteShell } from '@/components/site-shell'
-import { ProductsClient } from '@/components/products-client'
+import { Suspense } from 'react'
+import { ProductsClient, ProductsFromUrl } from '@/components/products-client'
 import { getProducts } from '@/lib/products-server'
 import { getStoreBySlug } from '@/lib/tenant'
 import { storeDisplayName } from '@/lib/seo'
@@ -43,9 +44,11 @@ export default async function ProductsPage({
 
   return (
     <SiteShell store={store}>
-      <section className="mx-auto max-w-[1200px] px-6 py-16">
-        <ProductsClient products={products} slug={slug} showPrices={store.showPrices} />
-      </section>
+      {/* Mientras se leen ?categoria= y ?q= se muestra el catálogo completo, que es también lo
+          que queda en el HTML cacheado (y lo que ven los buscadores). */}
+      <Suspense fallback={<ProductsClient products={products} slug={slug} showPrices={store.showPrices} />}>
+        <ProductsFromUrl products={products} slug={slug} showPrices={store.showPrices} />
+      </Suspense>
     </SiteShell>
   )
 }

@@ -5,61 +5,62 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { ProductCard } from '@/components/product-card'
 import type { Product } from '@/lib/products'
 
+// Fila horizontal de productos: 4 por pantalla en la compu (con flechas), casi 2 en el celular
+// (se desliza con el dedo).
 export function FeaturedCarousel({
+  title,
+  subtitle,
   products,
   slug,
   showPrices = false,
 }: {
+  title: string
+  subtitle?: string
   products: Product[]
   slug: string
   showPrices?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
 
-  function scroll(dir: 'left' | 'right') {
-    if (!ref.current) return
-    const amount = ref.current.offsetWidth * 0.8
-    ref.current.scrollBy({ left: dir === 'right' ? amount : -amount, behavior: 'smooth' })
+  function scroll(dir: 1 | -1) {
+    const el = ref.current
+    if (el) el.scrollBy({ left: dir * el.offsetWidth * 0.9, behavior: 'smooth' })
   }
 
   if (products.length === 0) return null
 
   return (
-    <div className="relative">
-      {products.length > 3 && (
-        <>
-          <button
-            type="button"
-            onClick={() => scroll('left')}
-            className="absolute -left-5 top-1/2 z-10 -translate-y-1/2 flex h-10 w-10 items-center justify-center"
-            style={{ backgroundColor: '#ffffff', border: '1px solid #e5e5e5', color: '#111111' }}
-            aria-label="Anterior"
-          >
-            <ChevronLeft size={18} strokeWidth={1.5} />
-          </button>
-          <button
-            type="button"
-            onClick={() => scroll('right')}
-            className="absolute -right-5 top-1/2 z-10 -translate-y-1/2 flex h-10 w-10 items-center justify-center"
-            style={{ backgroundColor: '#ffffff', border: '1px solid #e5e5e5', color: '#111111' }}
-            aria-label="Siguiente"
-          >
-            <ChevronRight size={18} strokeWidth={1.5} />
-          </button>
-        </>
-      )}
-
+    <section className="st-wrap pt-10 md:pt-16">
+      <div className="mb-4 flex items-end justify-between gap-4 md:mb-[22px]">
+        <div>
+          <h2 className="text-[22px] font-bold tracking-[-0.02em] md:text-[28px]">{title}</h2>
+          {subtitle && (
+            <p className="mt-1 text-[14px] md:text-[15px]" style={{ color: 'var(--st-mut)' }}>
+              {subtitle}
+            </p>
+          )}
+        </div>
+        {products.length > 4 && (
+          <div className="hidden gap-2 md:flex">
+            <button type="button" onClick={() => scroll(-1)} aria-label="Anteriores" className="grid h-10 w-10 place-items-center rounded-full border" style={{ borderColor: 'var(--st-line)' }}>
+              <ChevronLeft className="h-[18px] w-[18px]" />
+            </button>
+            <button type="button" onClick={() => scroll(1)} aria-label="Siguientes" className="grid h-10 w-10 place-items-center rounded-full border" style={{ borderColor: 'var(--st-line)' }}>
+              <ChevronRight className="h-[18px] w-[18px]" />
+            </button>
+          </div>
+        )}
+      </div>
       <div
         ref={ref}
-        className="flex gap-6 overflow-x-auto pb-2"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        className="st-noscroll -mr-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pr-4 md:mr-0 md:gap-5 md:pr-0"
       >
-        {products.map((product) => (
-          <div key={product.id} className="w-[300px] flex-shrink-0">
-            <ProductCard product={product} slug={slug} showPrices={showPrices} />
+        {products.map((p) => (
+          <div key={p.id} className="w-[46%] flex-shrink-0 snap-start md:w-[calc((100%-60px)/4)]">
+            <ProductCard product={p} slug={slug} showPrices={showPrices} />
           </div>
         ))}
       </div>
-    </div>
+    </section>
   )
 }
