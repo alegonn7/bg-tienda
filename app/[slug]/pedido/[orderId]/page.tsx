@@ -256,7 +256,11 @@ export default async function OrderConfirmationPage({
                   {order.shipping_city}, {order.shipping_province} ({order.shipping_postal_code})
                 </p>
               ) : (
-                <p className="text-[14px]">Retirás en el local. Te avisamos cuando esté listo.</p>
+                <p className="text-[14px]">
+                  Retirás en el local{store.pickupAddress ? `: ${store.pickupAddress}` : ''}.
+                  {store.pickupHours && <span className="block" style={{ color: 'var(--st-mut)' }}>{store.pickupHours}</span>}
+                  <span className="block">Te avisamos cuando esté listo.</span>
+                </p>
               )}
             </div>
           </div>

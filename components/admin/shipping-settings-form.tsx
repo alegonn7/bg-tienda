@@ -8,6 +8,7 @@ import {
   saveShippingOriginAddress,
   updateShippingSettings,
   updateFixedShippingZones,
+  updatePickupInfo,
 } from '@/app/admin/actions'
 import { ARGENTINA_PROVINCES } from '@/lib/argentina-provinces'
 import { ConfirmDialog } from '@/components/admin/confirm-dialog'
@@ -31,7 +32,10 @@ type OriginAddress = {
 }
 
 type Props = {
-  pickupAddress: string | null
+  // Dirección de la sucursal: es la que se muestra si la tienda no carga otra.
+  branchAddress: string | null
+  pickupAddress: string
+  pickupHours: string
   connected: boolean
   carrier: Carrier | null
   displayLabel: string | null
@@ -45,7 +49,9 @@ type Props = {
 }
 
 export function ShippingSettingsForm({
+  branchAddress,
   pickupAddress,
+  pickupHours,
   connected,
   carrier,
   displayLabel,
@@ -92,6 +98,10 @@ export function ShippingSettingsForm({
   const [threshold, setThreshold] = useState(freeShippingThreshold != null ? String(freeShippingThreshold) : '')
   const [freeOn, setFreeOn] = useState(freeShippingThreshold != null)
 
+  const [pickupAddr, setPickupAddr] = useState(pickupAddress)
+  const [pickupHrs, setPickupHrs] = useState(pickupHours)
+  const [savingPickup, setSavingPickup] = useState(false)
+
   const [savingCredentials, setSavingCredentials] = useState(false)
   const [savingOrigin, setSavingOrigin] = useState(false)
   const [savingEnabled, setSavingEnabled] = useState(false)
@@ -105,6 +115,22 @@ export function ShippingSettingsForm({
 
   const hasOrigin = !!postalCode
   const canEnable = mode === 'carrier' ? connected && hasOrigin : defaultCost.trim() !== ''
+
+  async function handleSavePickup(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingPickup(true)
+    setError('')
+    setSaved('')
+    try {
+      await updatePickupInfo({ address: pickupAddr, hours: pickupHrs })
+      setSaved('Datos de retiro guardados.')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error guardando los datos de retiro')
+    } finally {
+      setSavingPickup(false)
+    }
+  }
 
   async function handleSaveCredentials(e: React.FormEvent) {
     e.preventDefault()
@@ -307,17 +333,40 @@ export function ShippingSettingsForm({
       )}
 
       {/* Retiro: siempre disponible, no se apaga. */}
-      <section className="adm-card flex items-center gap-3 px-4 py-4 md:px-5">
-        <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[11px]" style={{ backgroundColor: '#f1f1ee' }}>
-          <Store className="h-[18px] w-[18px]" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-semibold">Retiro en el local</h3>
-          <p className="text-[13px]" style={{ color: 'var(--adm-muted)' }}>
-            Siempre disponible{pickupAddress ? ` · ${pickupAddress}` : ''}
-          </p>
+      <section className="adm-card">
+        <div className="flex items-center gap-3 px-4 pt-4 md:px-5">
+          <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[11px]" style={{ backgroundColor: '#f1f1ee' }}>
+            <Store className="h-[18px] w-[18px]" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[15px] font-semibold">Retiro en el local</h3>
+            <p className="text-[13px]" style={{ color: 'var(--adm-muted)' }}>
+              Siempre disponible. Tus clientes ven esta dirección y horario en la tienda.
+            </p>
+          </div>
+          <span className="adm-badge adm-b-ok">Activo</span>
         </div>
-        <span className="adm-badge adm-b-ok">Activo</span>
+        <form onSubmit={handleSavePickup} className="grid gap-3 px-4 pb-4 pt-3 md:grid-cols-[1fr_1fr_auto] md:items-end md:px-5">
+          <Field label="Dirección">
+            <input
+              value={pickupAddr}
+              onChange={(e) => setPickupAddr(e.target.value)}
+              placeholder={branchAddress ?? 'Ej: Av. Corrientes 1234, CABA'}
+              className="adm-input"
+            />
+          </Field>
+          <Field label="Horario (opcional)">
+            <input value={pickupHrs} onChange={(e) => setPickupHrs(e.target.value)} placeholder="Ej: Lun a vie de 10 a 19 h" className="adm-input" />
+          </Field>
+          <button type="submit" disabled={savingPickup} className="adm-btn adm-btn-pri w-fit">
+            {savingPickup ? 'Guardando…' : 'Guardar'}
+          </button>
+        </form>
+        {branchAddress && !pickupAddr.trim() && (
+          <p className="px-4 pb-4 text-[12px] md:px-5" style={{ color: 'var(--adm-muted)' }}>
+            Si la dejás vacía se muestra la de tu sucursal: {branchAddress}.
+          </p>
+        )}
       </section>
 
       {/* Envío a domicilio */}

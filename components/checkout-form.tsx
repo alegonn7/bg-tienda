@@ -8,6 +8,7 @@ import { useCart } from '@/components/cart-context'
 import { productImage } from '@/lib/products'
 import { formatPrice } from '@/lib/format'
 import type { Store } from '@/lib/tenant'
+import { freeShippingFrom, pickupText } from '@/lib/store-info'
 import { createMercadoPagoCheckout, createTransferOrder, quoteShipping } from '@/app/[slug]/actions'
 import { ARGENTINA_PROVINCES } from '@/lib/argentina-provinces'
 
@@ -98,6 +99,7 @@ export function CheckoutForm({ store }: { store: Store }) {
   const [error, setError] = useState('')
 
   const subtotal = items.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0)
+  const freeFrom = freeShippingFrom(store)
   // La comisión de plataforma solo existe para Mercado Pago -- transferencia no tiene forma de
   // cobrarla, la plata va directo banco a banco.
   const feeAmount = paymentMethod === 'mercadopago' ? Math.round(subtotal * PLATFORM_FEE_PERCENTAGE) / 100 : 0
@@ -327,7 +329,10 @@ export function CheckoutForm({ store }: { store: Store }) {
                           ¡Tu envío es gratis! <s style={{ color: 'var(--st-mut)' }}>{formatPrice(quote.originalCost)}</s>
                         </span>
                       ) : (
-                        <span>Envío a {province}: {formatPrice(quote.cost)}</span>
+                        <span>
+                          Envío a {province}: {formatPrice(quote.cost)}
+                          {freeFrom != null && freeFrom > subtotal && ` · te faltan ${formatPrice(freeFrom - subtotal)} para que sea gratis`}
+                        </span>
                       )}
                     </p>
                   )}
@@ -360,7 +365,7 @@ export function CheckoutForm({ store }: { store: Store }) {
               checked={method === 'pickup'}
               onSelect={() => setMethod('pickup')}
               title="Retiro en el local"
-              text="Te avisamos cuando tu pedido esté listo para retirar"
+              text={pickupText(store) ?? 'Te avisamos cuando tu pedido esté listo para retirar'}
               right={<span className="text-[15px] font-bold" style={{ color: 'var(--st-ok)' }}>Gratis</span>}
             />
           </div>

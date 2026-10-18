@@ -5,18 +5,26 @@ import Link from 'next/link'
 import { ArrowRight, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
 import { useCart, buildWhatsAppLink, type CartItem } from '@/components/cart-context'
 import { WhatsAppIcon } from '@/components/store/icons'
-import { productImage } from '@/lib/products'
+import { productImage, type Product } from '@/lib/products'
 import { formatPrice } from '@/lib/format'
-import { canPayOnline, storeName } from '@/lib/store-info'
+import { canPayOnline, freeShippingFrom, storeName } from '@/lib/store-info'
 import type { Store } from '@/lib/tenant'
 import { createPendingOrder } from '@/app/[slug]/actions'
 
-export function CartDrawer({ store }: { store: Store }) {
-  const { items, isOpen, closeCart, removeItem, updateQuantity, totalCount } = useCart()
+export function CartDrawer({ store, suggestions = [] }: { store: Store; suggestions?: Product[] }) {
+  const { items, isOpen, closeCart, removeItem, updateQuantity, totalCount, addItem } = useCart()
   const [sending, setSending] = useState(false)
   const subtotal = items.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0)
   const online = canPayOnline(store)
   const canWhatsApp = store.whatsappOrdersEnabled && !!store.whatsappNumber
+  const freeFrom = online ? freeShippingFrom(store) : null
+  const missing = freeFrom != null ? Math.max(0, freeFrom - subtotal) : 0
+  // Dos sugerencias que no estén en el carrito, de las más baratas (las que más fácil se suman).
+  const inCart = new Set(items.map((i) => i.product.id))
+  const upsell = suggestions
+    .filter((p) => !inCart.has(p.id))
+    .sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
+    .slice(0, 2)
 
   useEffect(() => {
     if (!isOpen) return
@@ -79,7 +87,25 @@ export function CartDrawer({ store }: { store: Store }) {
           </div>
         ) : (
           <>
-            <ul className="flex-1 overflow-y-auto px-4 py-1 md:px-6">
+            {freeFrom != null && (
+              <div className="mx-4 mt-3.5 rounded-xl px-3.5 py-3 text-[14px] md:mx-6" style={{ backgroundColor: 'var(--st-sf)' }}>
+                {missing > 0 ? (
+                  <>
+                    Te faltan <b>{formatPrice(missing)}</b> para tener envío gratis
+                  </>
+                ) : (
+                  <b style={{ color: 'var(--st-ok)' }}>¡Tenés envío gratis!</b>
+                )}
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: 'var(--st-line)' }}>
+                  <i
+                    className="block h-full rounded-full transition-[width] duration-300"
+                    style={{ width: `${Math.min(100, (subtotal / freeFrom) * 100)}%`, backgroundColor: missing > 0 ? 'var(--color-accent)' : 'var(--st-ok)' }}
+                  />
+                </div>
+              </div>
+            )}
+            <div className="flex-1 overflow-y-auto">
+            <ul className="px-4 py-1 md:px-6">
               {items.map((item) => (
                 <CartRow
                   key={item.key}
@@ -93,6 +119,17 @@ export function CartDrawer({ store }: { store: Store }) {
                 />
               ))}
             </ul>
+            {upsell.length > 0 && (
+              <div className="px-4 pb-4 pt-2 md:px-6">
+                <p className="mb-2.5 text-[14px] font-semibold">Sumá a tu pedido</p>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {upsell.map((p) => (
+                    <Upsell key={p.id} product={p} slug={store.slug} onNavigate={closeCart} onAdd={() => addItem(p, 1)} />
+                  ))}
+                </div>
+              </div>
+            )}
+            </div>
 
             <div className="grid gap-2.5 border-t px-4 pb-[18px] pt-3.5 md:px-6 md:pb-[22px] md:pt-[18px]" style={{ borderColor: 'var(--st-line)' }}>
               <div className="flex justify-between text-[14px]" style={{ color: 'var(--st-mut)' }}>
@@ -182,5 +219,32 @@ function CartRow({
         </button>
       </div>
     </li>
+  )
+}
+
+// Con talles hay que elegir uno: en ese caso el + lleva al producto en vez de sumarlo directo.
+function Upsell({ product, slug, onNavigate, onAdd }: { product: Product; slug: string; onNavigate: () => void; onAdd: () => void }) {
+  const href = `/${slug}/productos/${product.id}`
+  const btn = 'grid h-8 w-8 flex-shrink-0 place-items-center rounded-full text-white'
+  return (
+    <div className="flex items-center gap-2.5 rounded-xl border p-2" style={{ borderColor: 'var(--st-line2)' }}>
+      <Link href={href} onClick={onNavigate} className="h-[50px] w-10 flex-shrink-0 overflow-hidden rounded-lg" style={{ backgroundColor: 'var(--st-sf)' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={productImage(product)} alt="" className="h-full w-full object-cover" />
+      </Link>
+      <Link href={href} onClick={onNavigate} className="min-w-0 flex-1">
+        <small className="line-clamp-2 block text-[12px] leading-tight" style={{ color: 'var(--st-mut)' }}>{product.name}</small>
+        <b className="text-[14px]">{formatPrice(product.price)}</b>
+      </Link>
+      {product.sizes.length > 0 ? (
+        <Link href={href} onClick={onNavigate} aria-label={`Elegir talle de ${product.name}`} className={btn} style={{ backgroundColor: 'var(--st-ink)' }}>
+          <Plus className="h-4 w-4" />
+        </Link>
+      ) : (
+        <button type="button" onClick={onAdd} aria-label={`Sumar ${product.name}`} className={btn} style={{ backgroundColor: 'var(--st-ink)' }}>
+          <Plus className="h-4 w-4" />
+        </button>
+      )}
+    </div>
   )
 }

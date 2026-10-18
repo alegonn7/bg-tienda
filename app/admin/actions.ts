@@ -593,6 +593,29 @@ export async function updateShippingSettings(data: {
   revalidateStorefront()
 }
 
+// Dirección y horario de retiro que ve el cliente (tienda, checkout y pedido). Se guardan en
+// store_settings.extra; vacío = la tienda usa la dirección de la sucursal (vista store_directory).
+export async function updatePickupInfo(data: { address: string; hours: string }) {
+  const ctx = await getOrgParaEditar()
+
+  const supabase = await createClient()
+  const { data: row, error: readError } = await supabase
+    .from('store_settings')
+    .select('extra')
+    .eq('id', ctx.storeSettingsId)
+    .single()
+  if (readError) throw new Error(readError.message)
+
+  const extra = { ...((row?.extra as Record<string, unknown> | null) ?? {}) }
+  extra.pickup_address = data.address.trim() || null
+  extra.pickup_hours = data.hours.trim() || null
+
+  const { error } = await supabase.from('store_settings').update({ extra }).eq('id', ctx.storeSettingsId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/configuracion')
+  revalidateStorefront()
+}
+
 // Montos fijos por zona (alternativa al envío automático): un costo por defecto + overrides
 // opcionales por provincia (ej. Buenos Aires $X, resto del país el default). Tampoco es
 // secreto, mismo .update() directo.

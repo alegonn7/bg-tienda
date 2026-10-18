@@ -27,6 +27,11 @@ export type Store = {
   transferCbu: string | null
   transferAlias: string | null
   transferReceiptEmail: string | null
+  // Envío gratis desde este subtotal (null = nunca). La función shipping-quote ya lo aplica.
+  freeShippingThreshold: number | null
+  // Dirección y horario de retiro: lo que cargó la tienda o, si no, la dirección de la sucursal.
+  pickupAddress: string | null
+  pickupHours: string | null
   heroTitle: string | null
   heroSubtitle: string | null
   features: { title: string; text: string; icon?: string }[]
@@ -72,6 +77,9 @@ export const getStoreBySlug = cache(async (slug: string): Promise<Store | null> 
     transferCbu: data.transfer_cbu ?? null,
     transferAlias: data.transfer_alias ?? null,
     transferReceiptEmail: data.transfer_receipt_email ?? null,
+    freeShippingThreshold: data.free_shipping_threshold != null ? Number(data.free_shipping_threshold) : null,
+    pickupAddress: data.pickup_address ?? null,
+    pickupHours: data.pickup_hours ?? null,
     heroTitle: data.hero_title,
     heroSubtitle: data.hero_subtitle,
     features: Array.isArray(data.features) ? data.features : [],

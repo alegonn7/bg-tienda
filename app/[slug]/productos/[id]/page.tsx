@@ -9,7 +9,7 @@ import { ProductPurchase } from '@/components/product-purchase'
 import { getProduct, getProducts } from '@/lib/products-server'
 import { hasDiscount } from '@/lib/products'
 import { getStoreBySlug, type Store } from '@/lib/tenant'
-import { paymentLabels } from '@/lib/store-info'
+import { freeShippingFrom, paymentLabels, pickupText } from '@/lib/store-info'
 import { formatPrice } from '@/lib/format'
 import { SITE_URL } from '@/lib/site-config'
 import { absoluteUrl, metaDescription, storeDisplayName } from '@/lib/seo'
@@ -117,9 +117,14 @@ export default async function ProductDetailPage({
   const priced = store.showPrices && product.price != null
   const base = `/${slug}`
 
+  const freeFrom = freeShippingFrom(store)
   const perks = [
-    store.shippingEnabled && { Icon: Truck, title: 'Envío a domicilio', text: 'A todo el país. Calculás el costo con tu código postal al finalizar la compra.' },
-    { Icon: StoreIcon, title: 'Retiro sin cargo', text: 'Pasás a buscar tu pedido por el local.' },
+    store.shippingEnabled && {
+      Icon: Truck,
+      title: 'Envío a domicilio',
+      text: `${freeFrom ? `Gratis desde ${formatPrice(freeFrom)}. ` : 'A todo el país. '}Calculás el costo con tu código postal al finalizar la compra.`,
+    },
+    { Icon: StoreIcon, title: 'Retiro sin cargo en el local', text: pickupText(store) ?? 'Pasás a buscar tu pedido por el local.' },
     store.showPrices && store.mercadopagoAvailable
       ? { Icon: ShieldCheck, title: 'Compra protegida', text: 'Pagás seguro con Mercado Pago' + (store.transferEnabled ? ' o por transferencia.' : '.') }
       : store.showPrices && store.transferEnabled
