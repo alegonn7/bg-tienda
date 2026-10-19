@@ -127,30 +127,32 @@ export const getAdminOrgWithStatus = cache(async (): Promise<AdminOrgContext | n
   const user = await getAuthUser()
   if (!user) return null
 
+  // Usuario, organización y configuración de la tienda en una sola consulta (store_settings tiene
+  // organization_id único, así que viene embebida como un objeto). Antes eran dos idas y vueltas
+  // seguidas a Supabase en cada navegación del panel.
   const supabase = await createClient()
   const { data: userRow } = await supabase
     .from('users')
-    .select('id, organization_id, role, organizations(slug, name, logo_url, plan, subscription_status)')
+    .select(
+      'id, organization_id, role, organizations(slug, name, logo_url, plan, subscription_status, store_settings(id, branch_id, enabled, store_name, favicon_url))',
+    )
     .eq('auth_id', user.id)
     .maybeSingle()
 
   if (!userRow) return null
 
-  const { data: storeSettings } = await supabase
-    .from('store_settings')
-    .select('id, branch_id, enabled, store_name, favicon_url')
-    .eq('organization_id', userRow.organization_id)
-    .maybeSingle()
-
-  if (!storeSettings || !storeSettings.enabled) return null
-
+  type SettingsRow = { id: string; branch_id: string; enabled: boolean; store_name: string | null; favicon_url: string | null }
   const org = userRow.organizations as unknown as {
     slug: string
     name: string
     logo_url: string | null
     plan: string
     subscription_status: string | null
+    store_settings: SettingsRow | SettingsRow[] | null
   } | null
+  const storeSettings = Array.isArray(org?.store_settings) ? org.store_settings[0] : org?.store_settings
+
+  if (!storeSettings || !storeSettings.enabled) return null
 
   return {
     userId: userRow.id,

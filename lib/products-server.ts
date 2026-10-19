@@ -43,67 +43,50 @@ function mapCatalogRow(row: CatalogRow): Product {
   }
 }
 
-export async function getProducts(organizationId: string, limit?: number): Promise<Product[]> {
-  const supabase = createPublicClient()
-  let query = supabase
-    .from('store_catalog')
-    .select('*')
-    .eq('organization_id', organizationId)
-    .order('created_at', { ascending: false })
-  if (limit) query = query.limit(limit)
-  const { data, error } = await query
-  if (error) throw new Error(`getProducts: ${error.message}`)
-  return (data ?? []).map(mapCatalogRow)
-}
-
-export async function getFeaturedProducts(organizationId: string): Promise<Product[]> {
+// Todo el catálogo visible de la tienda en UNA consulta por render. Inicio, listado, producto,
+// menú, pie y carrito sacan de acá lo que necesitan (cache() comparte el resultado dentro del
+// mismo request, también con generateMetadata), en vez de ir a Supabase cuatro o cinco veces
+// una detrás de otra. El catálogo de una tienda son cientos de filas livianas: traerlo entero
+// cuesta lo mismo que traer 8.
+const getCatalog = cache(async (organizationId: string): Promise<Product[]> => {
   const supabase = createPublicClient()
   const { data, error } = await supabase
     .from('store_catalog')
     .select('*')
     .eq('organization_id', organizationId)
-    .eq('featured', true)
     .order('created_at', { ascending: false })
-  if (error) throw new Error(`getFeaturedProducts: ${error.message}`)
+  if (error) throw new Error(`getCatalog: ${error.message}`)
   return (data ?? []).map(mapCatalogRow)
+})
+
+export async function getProducts(organizationId: string, limit?: number): Promise<Product[]> {
+  const all = await getCatalog(organizationId)
+  return limit ? all.slice(0, limit) : all
+}
+
+export async function getFeaturedProducts(organizationId: string): Promise<Product[]> {
+  return (await getCatalog(organizationId)).filter((p) => p.featured)
 }
 
 export type StoreCategory = { name: string; count: number; image: string | null }
 
 // Categorías con productos visibles, para el menú, el pie y los mosaicos del inicio. Se derivan
 // de store_catalog (lo único público, ver Fase 04); la imagen es la del primer producto con foto.
-export const getStoreCategories = cache(async (organizationId: string): Promise<StoreCategory[]> => {
-  const supabase = createPublicClient()
-  const { data, error } = await supabase
-    .from('store_catalog')
-    .select('category_name, images')
-    .eq('organization_id', organizationId)
-    .order('created_at', { ascending: false })
-  if (error) throw new Error(`getStoreCategories: ${error.message}`)
+export async function getStoreCategories(organizationId: string): Promise<StoreCategory[]> {
   const byName = new Map<string, StoreCategory>()
-  for (const row of (data ?? []) as { category_name: string | null; images: string[] | null }[]) {
-    if (!row.category_name) continue
-    const cat = byName.get(row.category_name) ?? { name: row.category_name, count: 0, image: null }
+  for (const p of await getCatalog(organizationId)) {
+    if (!p.category) continue
+    const cat = byName.get(p.category) ?? { name: p.category, count: 0, image: null }
     cat.count++
-    if (!cat.image && row.images?.[0]) cat.image = row.images[0]
-    byName.set(row.category_name, cat)
+    if (!cat.image && p.images[0]) cat.image = p.images[0]
+    byName.set(p.category, cat)
   }
   return [...byName.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-})
+}
 
-// cache(): generateMetadata y la página del producto lo piden con los mismos argumentos en el
-// mismo request; así se consulta a Supabase una sola vez.
-export const getProduct = cache(async (organizationId: string, productId: string): Promise<Product | null> => {
-  const supabase = createPublicClient()
-  const { data, error } = await supabase
-    .from('store_catalog')
-    .select('*')
-    .eq('organization_id', organizationId)
-    .eq('product_id', productId)
-    .maybeSingle()
-  if (error) throw new Error(`getProduct: ${error.message}`)
-  return data ? mapCatalogRow(data) : null
-})
+export async function getProduct(organizationId: string, productId: string): Promise<Product | null> {
+  return (await getCatalog(organizationId)).find((p) => p.id === productId) ?? null
+}
 
 // ---------------------------------------------------------------------------
 // Admin (/admin) — lee de las tablas reales (products + products_branch),
