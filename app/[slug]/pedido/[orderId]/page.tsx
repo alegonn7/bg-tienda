@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { SiteShell } from '@/components/site-shell'
 import { getStoreBySlug } from '@/lib/tenant'
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
 import { formatPrice } from '@/lib/format'
 import { Check, Clock, CreditCard, Hash, Info, Landmark, Package, Truck, X } from 'lucide-react'
 import { CopyButton } from '@/components/copy-button'
@@ -65,7 +65,10 @@ export default async function OrderConfirmationPage({
   const store = await getStoreBySlug(slug)
   if (!store) notFound()
 
-  const supabase = await createClient()
+  // Cliente sin cookies: el pedido es público (RPC con permiso anon). Con el cliente de cookies, si
+  // el dueño de la tienda lo abre con el token vencido, este Server Component renovaba la sesión
+  // sin poder guardar las cookies nuevas, y el panel quedaba deslogueado.
+  const supabase = createPublicClient()
   const { data, error } = await supabase.rpc('get_public_store_order', { p_store_order_id: orderId })
   if (error) console.error('get_public_store_order:', error.message)
 

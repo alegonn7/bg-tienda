@@ -81,7 +81,9 @@ export function StoreLogo({ name, logoUrl, size = 34 }: { name: string; logoUrl:
 }
 
 export async function signOut(router: ReturnType<typeof useRouter>) {
-  await createClient().auth.signOut()
+  // scope local: cierra solo esta sesión. El default (global) cierra la cuenta en todos lados,
+  // incluida BG Gestión en la compu o el celu, porque comparten la misma cuenta.
+  await createClient().auth.signOut({ scope: 'local' })
   router.push('/admin/login')
   router.refresh()
 }
