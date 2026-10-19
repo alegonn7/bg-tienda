@@ -62,10 +62,16 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   }
 }
 
-// Datos estructurados de producto. Solo se publican si la página muestra el precio: Google exige
-// "offers" (o reseñas) en un Product, y marcar un precio que el visitante no ve va contra sus
-// reglas. Las tiendas que ocultan precios quedan sin este bloque, pero con título/description.
-function productJsonLd(product: NonNullable<Awaited<ReturnType<typeof getProduct>>>, storeName: string, url: string) {
+// Datos estructurados de producto. Solo se publican si la página muestra el precio y el producto
+// tiene foto: Google exige "offers" en un Product y "image" en una ficha de comerciante (sin foto
+// la marca como problema crítico), y marcar un precio que el visitante no ve va contra sus reglas.
+// Los productos que no cumplen quedan sin este bloque, pero con título/description.
+function productJsonLd(
+  product: NonNullable<Awaited<ReturnType<typeof getProduct>>>,
+  store: Store,
+  url: string,
+) {
+  const storeName = storeDisplayName(store)
   const availability =
     product.stock == null
       ? undefined
@@ -78,7 +84,7 @@ function productJsonLd(product: NonNullable<Awaited<ReturnType<typeof getProduct
     '@type': 'Product',
     name: product.name,
     ...(product.description?.trim() ? { description: product.description.trim() } : {}),
-    ...(product.images.length > 0 ? { image: product.images.map(absoluteUrl) } : {}),
+    image: product.images.map(absoluteUrl),
     ...(product.category ? { category: product.category } : {}),
     sku: product.id,
     brand: { '@type': 'Brand', name: storeName },
@@ -90,7 +96,47 @@ function productJsonLd(product: NonNullable<Awaited<ReturnType<typeof getProduct
       ...(availability ? { availability } : {}),
       itemCondition: 'https://schema.org/NewCondition',
       seller: { '@type': 'Organization', name: storeName },
+      ...shippingJsonLd(store, product.price ?? 0),
+      hasMerchantReturnPolicy: returnPolicyJsonLd(store),
     },
+  }
+}
+
+// Envío, solo cuando se conoce de verdad: si la tienda no envía (solo retiro) se marca así, y si
+// envía gratis desde un monto que este producto ya supera, costo 0. El resto se cotiza con el
+// código postal en el checkout, así que no hay un costo fijo que publicar y se omite.
+function shippingJsonLd(store: Store, price: number) {
+  const destination = { '@type': 'DefinedRegion', addressCountry: 'AR' }
+  if (!store.shippingEnabled) {
+    return { shippingDetails: { '@type': 'OfferShippingDetails', shippingDestination: destination, doesNotShip: true } }
+  }
+  const freeFrom = freeShippingFrom(store)
+  if (freeFrom != null && price >= freeFrom) {
+    return {
+      shippingDetails: {
+        '@type': 'OfferShippingDetails',
+        shippingDestination: destination,
+        shippingRate: { '@type': 'MonetaryAmount', value: 0, currency: 'ARS' },
+      },
+    }
+  }
+  return {}
+}
+
+// Devoluciones: lo mínimo que exige la ley para toda venta online en Argentina (derecho de
+// arrepentimiento, Ley 24.240 art. 34): 10 días corridos y los gastos corren por cuenta del
+// vendedor. Se devuelve en el local, o por envío si la tienda hace envíos.
+function returnPolicyJsonLd(store: Store) {
+  return {
+    '@type': 'MerchantReturnPolicy',
+    applicableCountry: 'AR',
+    returnPolicyCountry: 'AR',
+    returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+    merchantReturnDays: 10,
+    returnFees: 'https://schema.org/FreeReturn',
+    returnMethod: store.shippingEnabled
+      ? ['https://schema.org/ReturnInStore', 'https://schema.org/ReturnByMail']
+      : 'https://schema.org/ReturnInStore',
   }
 }
 
@@ -111,8 +157,8 @@ export default async function ProductDetailPage({
   const related = [...others.filter((p) => p.category === product.category), ...others.filter((p) => p.category !== product.category)].slice(0, 8)
 
   const jsonLd =
-    store.showPrices && product.price != null
-      ? productJsonLd(product, storeDisplayName(store), `${SITE_URL}/${slug}/productos/${product.id}`)
+    store.showPrices && product.price != null && product.images.length > 0
+      ? productJsonLd(product, store, `${SITE_URL}/${slug}/productos/${product.id}`)
       : null
   const priced = store.showPrices && product.price != null
   const base = `/${slug}`
