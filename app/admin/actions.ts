@@ -636,6 +636,31 @@ export async function updateFixedShippingZones(data: {
   revalidateStorefront()
 }
 
+// Paquete típico de la tienda: lo usa la cotización con el correo para cada producto que no
+// tenga peso/medidas propios (store_settings.shipping_default_*). Mismo .update() directo.
+export async function updateShippingDefaults(data: {
+  weightGrams: number | null
+  lengthCm: number | null
+  widthCm: number | null
+  heightCm: number | null
+}) {
+  const ctx = await getOrgParaEditar()
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('store_settings')
+    .update({
+      shipping_default_weight_grams: data.weightGrams,
+      shipping_default_length_cm: data.lengthCm,
+      shipping_default_width_cm: data.widthCm,
+      shipping_default_height_cm: data.heightCm,
+    })
+    .eq('id', ctx.storeSettingsId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/configuracion')
+}
+
 // Sugerencias de imágenes — para productos cargados desde bg-gestion sin foto. Busca candidatas
 // en base a un texto (normalmente el nombre del producto) y, si el admin elige una, la baja del
 // lado del servidor y la sube al mismo bucket/patrón que la subida manual (product-form.tsx),

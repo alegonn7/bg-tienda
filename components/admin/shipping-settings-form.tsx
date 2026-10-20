@@ -9,6 +9,7 @@ import {
   updateShippingSettings,
   updateFixedShippingZones,
   updatePickupInfo,
+  updateShippingDefaults,
 } from '@/app/admin/actions'
 import { ARGENTINA_PROVINCES } from '@/lib/argentina-provinces'
 import { ConfirmDialog } from '@/components/admin/confirm-dialog'
@@ -52,6 +53,7 @@ type Props = {
   pricingMode: PricingMode
   fixedShippingDefaultCost: number | null
   fixedShippingZones: { province: string; cost: number }[]
+  defaultPackage: { weightGrams: number | null; lengthCm: number | null; widthCm: number | null; heightCm: number | null }
 }
 
 export function ShippingSettingsForm({
@@ -68,6 +70,7 @@ export function ShippingSettingsForm({
   pricingMode,
   fixedShippingDefaultCost,
   fixedShippingZones,
+  defaultPackage,
 }: Props) {
   const router = useRouter()
 
@@ -114,6 +117,13 @@ export function ShippingSettingsForm({
 
   const [savingCredentials, setSavingCredentials] = useState(false)
   const [savingOrigin, setSavingOrigin] = useState(false)
+
+  const numText = (n: number | null) => (n != null ? String(n) : '')
+  const [pkgWeight, setPkgWeight] = useState(numText(defaultPackage.weightGrams))
+  const [pkgLength, setPkgLength] = useState(numText(defaultPackage.lengthCm))
+  const [pkgWidth, setPkgWidth] = useState(numText(defaultPackage.widthCm))
+  const [pkgHeight, setPkgHeight] = useState(numText(defaultPackage.heightCm))
+  const [savingPackage, setSavingPackage] = useState(false)
   const [savingEnabled, setSavingEnabled] = useState(false)
   const [savingThreshold, setSavingThreshold] = useState(false)
   const [savingMode, setSavingMode] = useState(false)
@@ -203,6 +213,23 @@ export function ShippingSettingsForm({
       setError(err instanceof Error ? err.message : 'Error guardando la dirección')
     } finally {
       setSavingOrigin(false)
+    }
+  }
+
+  async function handleSavePackage(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingPackage(true)
+    setError('')
+    setSaved('')
+    try {
+      const num = (v: string) => (v.trim() === '' ? null : Number(v))
+      await updateShippingDefaults({ weightGrams: num(pkgWeight), lengthCm: num(pkgLength), widthCm: num(pkgWidth), heightCm: num(pkgHeight) })
+      setSaved('Paquete típico guardado.')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error guardando el paquete')
+    } finally {
+      setSavingPackage(false)
     }
   }
 
@@ -577,6 +604,32 @@ export function ShippingSettingsForm({
                 </div>
                 <button type="submit" disabled={savingOrigin} className="adm-btn w-fit">
                   {savingOrigin ? 'Guardando…' : 'Guardar dirección'}
+                </button>
+              </form>
+
+              <form onSubmit={handleSavePackage} className="grid gap-3 rounded-[12px] p-3.5" style={{ border: '1px solid var(--adm-line)' }}>
+                <div>
+                  <p className="adm-label !mb-0">Paquete típico</p>
+                  <p className="text-[12px]" style={{ color: 'var(--adm-muted)' }}>
+                    El correo cotiza por peso y tamaño. Se usa para cada producto que no tenga peso y medidas propios (los cargás en el producto, en &quot;Peso y medidas&quot;). Si lo dejás vacío se usa 500 g y 20×15×10 cm.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <Field label="Peso (g)">
+                    <input type="number" min={0} value={pkgWeight} onChange={(e) => setPkgWeight(e.target.value)} placeholder="500" className="adm-input" />
+                  </Field>
+                  <Field label="Largo (cm)">
+                    <input type="number" min={0} value={pkgLength} onChange={(e) => setPkgLength(e.target.value)} placeholder="20" className="adm-input" />
+                  </Field>
+                  <Field label="Ancho (cm)">
+                    <input type="number" min={0} value={pkgWidth} onChange={(e) => setPkgWidth(e.target.value)} placeholder="15" className="adm-input" />
+                  </Field>
+                  <Field label="Alto (cm)">
+                    <input type="number" min={0} value={pkgHeight} onChange={(e) => setPkgHeight(e.target.value)} placeholder="10" className="adm-input" />
+                  </Field>
+                </div>
+                <button type="submit" disabled={savingPackage} className="adm-btn w-fit">
+                  {savingPackage ? 'Guardando…' : 'Guardar paquete'}
                 </button>
               </form>
             </div>
