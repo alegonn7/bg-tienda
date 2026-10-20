@@ -120,6 +120,9 @@ async function Envios({ settings, branchId }: { settings: Settings; branchId: st
       pricingMode={settings.shipping_pricing_mode as 'carrier' | 'fixed_zones'}
       fixedShippingDefaultCost={settings.fixed_shipping_default_cost}
       fixedShippingZones={(settings.fixed_shipping_zones ?? []) as { province: string; cost: number }[]}
+      shippingCarriers={
+        Array.isArray(settings.extra?.shipping_carriers) ? (settings.extra.shipping_carriers as string[]) : []
+      }
       defaultPackage={{
         weightGrams: settings.shipping_default_weight_grams,
         lengthCm: settings.shipping_default_length_cm,

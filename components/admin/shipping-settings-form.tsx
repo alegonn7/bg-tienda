@@ -8,10 +8,17 @@ import {
   updateFixedShippingZones,
   updatePickupInfo,
   updateShippingDefaults,
+  updateShippingCarriers,
 } from '@/app/admin/actions'
 import { ARGENTINA_PROVINCES } from '@/lib/argentina-provinces'
 import { Field, Toggle } from '@/components/admin/ui'
 import { Plus, Store, Trash2, Truck } from 'lucide-react'
+
+const SHIPPING_CARRIERS = [
+  ['andreani', 'Andreani'],
+  ['correoArgentino', 'Correo Argentino'],
+  ['oca', 'OCA'],
+] as const
 
 function parseThreshold(value: string): number | null {
   return value.trim() === '' ? null : Number(value)
@@ -39,6 +46,7 @@ type Props = {
   pricingMode: PricingMode
   fixedShippingDefaultCost: number | null
   fixedShippingZones: { province: string; cost: number }[]
+  shippingCarriers: string[]
   defaultPackage: { weightGrams: number | null; lengthCm: number | null; widthCm: number | null; heightCm: number | null }
 }
 
@@ -52,6 +60,7 @@ export function ShippingSettingsForm({
   pricingMode,
   fixedShippingDefaultCost,
   fixedShippingZones,
+  shippingCarriers,
   defaultPackage,
 }: Props) {
   const router = useRouter()
@@ -89,6 +98,10 @@ export function ShippingSettingsForm({
   const [pkgWidth, setPkgWidth] = useState(numText(defaultPackage.widthCm))
   const [pkgHeight, setPkgHeight] = useState(numText(defaultPackage.heightCm))
   const [savingPackage, setSavingPackage] = useState(false)
+  const [carriers, setCarriers] = useState<string[]>(
+    shippingCarriers.length ? shippingCarriers : SHIPPING_CARRIERS.map(([code]) => code),
+  )
+  const [savingCarriers, setSavingCarriers] = useState(false)
   const [savingEnabled, setSavingEnabled] = useState(false)
   const [savingThreshold, setSavingThreshold] = useState(false)
   const [savingMode, setSavingMode] = useState(false)
@@ -128,6 +141,28 @@ export function ShippingSettingsForm({
       setError(err instanceof Error ? err.message : 'Error guardando la dirección')
     } finally {
       setSavingOrigin(false)
+    }
+  }
+
+  async function handleToggleCarrier(code: string) {
+    const next = carriers.includes(code) ? carriers.filter((c) => c !== code) : [...carriers, code]
+    if (!next.length) {
+      setError('Elegí al menos un correo.')
+      return
+    }
+    const prev = carriers
+    setCarriers(next)
+    setSavingCarriers(true)
+    setError('')
+    setSaved('')
+    try {
+      await updateShippingCarriers(next)
+      router.refresh()
+    } catch (err) {
+      setCarriers(prev)
+      setError(err instanceof Error ? err.message : 'Error guardando los correos')
+    } finally {
+      setSavingCarriers(false)
     }
   }
 
@@ -406,11 +441,27 @@ export function ShippingSettingsForm({
 
           {mode === 'carrier' && (
             <div className="grid gap-4">
-              <div className="rounded-[10px] p-3 text-[13px]" style={{ backgroundColor: '#f6f6f4' }}>
-                <p className="font-medium">No necesitás cuenta en ningún correo</p>
-                <p className="mt-1" style={{ color: 'var(--adm-muted)' }}>
-                  Cotizamos Andreani, Correo Argentino, OCA y otros según el peso del carrito y el destino, y se cobra el más barato. Es una tarifa de referencia: el envío lo despachás vos como siempre.
-                </p>
+              <div className="grid gap-3 rounded-[12px] p-3.5" style={{ border: '1px solid var(--adm-line)' }}>
+                <div>
+                  <p className="adm-label !mb-0">Correos con los que trabajás</p>
+                  <p className="text-[12px]" style={{ color: 'var(--adm-muted)' }}>
+                    Cotizamos solo con los que marques, según el peso del carrito y el destino. Si marcás más de uno, se cobra el más barato. No necesitás cuenta en ningún correo.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {SHIPPING_CARRIERS.map(([code, name]) => (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => handleToggleCarrier(code)}
+                      disabled={savingCarriers}
+                      className="adm-chip"
+                      data-on={carriers.includes(code)}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <form onSubmit={handleSaveOrigin} className="grid gap-3 rounded-[12px] p-3.5" style={{ border: '1px solid var(--adm-line)' }}>

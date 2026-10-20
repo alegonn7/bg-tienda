@@ -619,6 +619,28 @@ export async function updatePickupInfo(data: { address: string; hours: string })
   revalidateStorefront()
 }
 
+// Correos con los que trabaja la tienda en el cálculo automático (códigos de Envia: andreani,
+// correoArgentino, oca). Se guarda en extra.shipping_carriers; shipping-quote cotiza solo esos
+// y cobra el más barato. Vacío/ausente = los tres.
+export async function updateShippingCarriers(carriers: string[]) {
+  const ctx = await getOrgParaEditar()
+
+  const supabase = await createClient()
+  const { data: row, error: readError } = await supabase
+    .from('store_settings')
+    .select('extra')
+    .eq('id', ctx.storeSettingsId)
+    .single()
+  if (readError) throw new Error(readError.message)
+
+  const extra = { ...((row?.extra as Record<string, unknown> | null) ?? {}) }
+  extra.shipping_carriers = carriers
+
+  const { error } = await supabase.from('store_settings').update({ extra }).eq('id', ctx.storeSettingsId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/configuracion')
+}
+
 // Montos fijos por zona (alternativa al envío automático): un costo por defecto + overrides
 // opcionales por provincia (ej. Buenos Aires $X, resto del país el default). Tampoco es
 // secreto, mismo .update() directo.
