@@ -23,7 +23,7 @@ export default async function ConfiguracionPage({
   const { data: storeSettings } = await supabase
     .from('store_settings')
     .select(
-      'show_prices, payment_online_enabled, shipping_enabled, free_shipping_threshold, shipping_pricing_mode, fixed_shipping_default_cost, fixed_shipping_zones, whatsapp_orders_enabled, whatsapp_number, transfer_enabled, transfer_cbu, transfer_alias, transfer_receipt_email, extra'
+      'show_prices, payment_online_enabled, shipping_enabled, free_shipping_threshold, shipping_pricing_mode, fixed_shipping_default_cost, fixed_shipping_zones, shipping_default_weight_grams, shipping_default_length_cm, shipping_default_width_cm, shipping_default_height_cm, whatsapp_orders_enabled, whatsapp_number, transfer_enabled, transfer_cbu, transfer_alias, transfer_receipt_email, extra'
     )
     .eq('id', ctx.storeSettingsId)
     .single()
@@ -72,6 +72,10 @@ type Settings = {
   shipping_pricing_mode: string
   fixed_shipping_default_cost: number | null
   fixed_shipping_zones: unknown
+  shipping_default_weight_grams: number | null
+  shipping_default_length_cm: number | null
+  shipping_default_width_cm: number | null
+  shipping_default_height_cm: number | null
   whatsapp_orders_enabled: boolean
   whatsapp_number: string | null
   transfer_enabled: boolean
@@ -110,16 +114,21 @@ async function Envios({ settings, branchId }: { settings: Settings; branchId: st
       branchAddress={branchAddress}
       pickupAddress={typeof settings.extra?.pickup_address === 'string' ? settings.extra.pickup_address : ''}
       pickupHours={typeof settings.extra?.pickup_hours === 'string' ? settings.extra.pickup_hours : ''}
-      connected={shippingStatus.connected}
-      carrier={shippingStatus.carrier as 'correo_argentino' | 'andreani' | null}
-      displayLabel={shippingStatus.displayLabel}
-      environment={shippingStatus.environment as 'test' | 'production' | null}
       origin={shippingStatus.origin}
       shippingEnabled={settings.shipping_enabled}
       freeShippingThreshold={settings.free_shipping_threshold}
       pricingMode={settings.shipping_pricing_mode as 'carrier' | 'fixed_zones'}
       fixedShippingDefaultCost={settings.fixed_shipping_default_cost}
       fixedShippingZones={(settings.fixed_shipping_zones ?? []) as { province: string; cost: number }[]}
+      shippingCarriers={
+        Array.isArray(settings.extra?.shipping_carriers) ? (settings.extra.shipping_carriers as string[]) : []
+      }
+      defaultPackage={{
+        weightGrams: settings.shipping_default_weight_grams,
+        lengthCm: settings.shipping_default_length_cm,
+        widthCm: settings.shipping_default_width_cm,
+        heightCm: settings.shipping_default_height_cm,
+      }}
     />
   )
 }

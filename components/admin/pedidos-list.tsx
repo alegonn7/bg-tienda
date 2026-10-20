@@ -44,6 +44,7 @@ type Order = {
   total: number | null
   delivery_method: string | null
   shipping_carrier: string | null
+  shipping_quote_reference: string | null
   shipping_cost: number | null
   shipping_original_cost: number | null
   shipping_street: string | null
@@ -67,6 +68,7 @@ type Range = 'todo' | '7' | '30' | '90'
 const CARRIER_LABEL: Record<string, string> = {
   correo_argentino: 'Correo Argentino',
   andreani: 'Andreani',
+  envia: 'Envia.com',
 }
 
 const TONE_CLASS = { ok: 'adm-b-ok', warn: 'adm-b-warn', bad: 'adm-b-bad', info: 'adm-b-info', gray: 'adm-b-gray' }
@@ -518,7 +520,13 @@ function OrderDetail({ order, mobile }: { order: Order; mobile?: boolean }) {
           )}
           {isShipping ? (
             <Row
-              label={order.shipping_carrier ? `Envío (${CARRIER_LABEL[order.shipping_carrier] ?? order.shipping_carrier})` : 'Envío'}
+              label={
+                order.shipping_quote_reference
+                  ? `Envío (${order.shipping_quote_reference})`
+                  : order.shipping_carrier
+                    ? `Envío (${CARRIER_LABEL[order.shipping_carrier] ?? order.shipping_carrier})`
+                    : 'Envío'
+              }
               value={
                 freeShipping ? (
                   <span style={{ color: 'var(--adm-ok)' }}>

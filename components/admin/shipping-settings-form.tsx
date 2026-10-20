@@ -3,23 +3,27 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  saveShippingCredentials,
-  disconnectShippingCarrier,
   saveShippingOriginAddress,
   updateShippingSettings,
   updateFixedShippingZones,
   updatePickupInfo,
+  updateShippingDefaults,
+  updateShippingCarriers,
 } from '@/app/admin/actions'
 import { ARGENTINA_PROVINCES } from '@/lib/argentina-provinces'
-import { ConfirmDialog } from '@/components/admin/confirm-dialog'
 import { Field, Toggle } from '@/components/admin/ui'
 import { Plus, Store, Trash2, Truck } from 'lucide-react'
+
+const SHIPPING_CARRIERS = [
+  ['andreani', 'Andreani'],
+  ['correoArgentino', 'Correo Argentino'],
+  ['oca', 'OCA'],
+] as const
 
 function parseThreshold(value: string): number | null {
   return value.trim() === '' ? null : Number(value)
 }
 
-type Carrier = 'correo_argentino' | 'andreani'
 type PricingMode = 'carrier' | 'fixed_zones'
 
 type OriginAddress = {
@@ -36,50 +40,34 @@ type Props = {
   branchAddress: string | null
   pickupAddress: string
   pickupHours: string
-  connected: boolean
-  carrier: Carrier | null
-  displayLabel: string | null
-  environment: 'test' | 'production' | null
   origin: OriginAddress | null
   shippingEnabled: boolean
   freeShippingThreshold: number | null
   pricingMode: PricingMode
   fixedShippingDefaultCost: number | null
   fixedShippingZones: { province: string; cost: number }[]
+  shippingCarriers: string[]
+  defaultPackage: { weightGrams: number | null; lengthCm: number | null; widthCm: number | null; heightCm: number | null }
 }
 
 export function ShippingSettingsForm({
   branchAddress,
   pickupAddress,
   pickupHours,
-  connected,
-  carrier,
-  displayLabel,
-  environment,
   origin,
   shippingEnabled,
   freeShippingThreshold,
   pricingMode,
   fixedShippingDefaultCost,
   fixedShippingZones,
+  shippingCarriers,
+  defaultPackage,
 }: Props) {
   const router = useRouter()
 
   const [mode, setMode] = useState<PricingMode>(pricingMode)
 
-  const [selectedCarrier, setSelectedCarrier] = useState<Carrier>(carrier ?? 'correo_argentino')
-  const [selectedEnvironment, setSelectedEnvironment] = useState<'test' | 'production'>(environment ?? 'production')
-  const [label, setLabel] = useState(displayLabel ?? '')
 
-  // Correo Argentino
-  const [userToken, setUserToken] = useState('')
-  const [passwordToken, setPasswordToken] = useState('')
-  const [customerId, setCustomerId] = useState('')
-
-  // Andreani
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [contrato, setContrato] = useState('')
 
   const [street, setStreet] = useState(origin?.shipping_origin_street ?? '')
   const [number, setNumber] = useState(origin?.shipping_origin_number ?? '')
@@ -102,19 +90,27 @@ export function ShippingSettingsForm({
   const [pickupHrs, setPickupHrs] = useState(pickupHours)
   const [savingPickup, setSavingPickup] = useState(false)
 
-  const [savingCredentials, setSavingCredentials] = useState(false)
   const [savingOrigin, setSavingOrigin] = useState(false)
+
+  const numText = (n: number | null) => (n != null ? String(n) : '')
+  const [pkgWeight, setPkgWeight] = useState(numText(defaultPackage.weightGrams))
+  const [pkgLength, setPkgLength] = useState(numText(defaultPackage.lengthCm))
+  const [pkgWidth, setPkgWidth] = useState(numText(defaultPackage.widthCm))
+  const [pkgHeight, setPkgHeight] = useState(numText(defaultPackage.heightCm))
+  const [savingPackage, setSavingPackage] = useState(false)
+  const [carriers, setCarriers] = useState<string[]>(
+    shippingCarriers.length ? shippingCarriers : SHIPPING_CARRIERS.map(([code]) => code),
+  )
+  const [savingCarriers, setSavingCarriers] = useState(false)
   const [savingEnabled, setSavingEnabled] = useState(false)
   const [savingThreshold, setSavingThreshold] = useState(false)
   const [savingMode, setSavingMode] = useState(false)
   const [savingZones, setSavingZones] = useState(false)
-  const [disconnecting, setDisconnecting] = useState(false)
-  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
 
   const hasOrigin = !!postalCode
-  const canEnable = mode === 'carrier' ? connected && hasOrigin : defaultCost.trim() !== ''
+  const canEnable = mode === 'carrier' ? hasOrigin : defaultCost.trim() !== ''
 
   async function handleSavePickup(e: React.FormEvent) {
     e.preventDefault()
@@ -132,52 +128,6 @@ export function ShippingSettingsForm({
     }
   }
 
-  async function handleSaveCredentials(e: React.FormEvent) {
-    e.preventDefault()
-    setSavingCredentials(true)
-    setError('')
-    setSaved('')
-    try {
-      const fields =
-        selectedCarrier === 'correo_argentino'
-          ? { userToken, passwordToken, customerId }
-          : { username, password, contrato }
-
-      await saveShippingCredentials({
-        carrier: selectedCarrier,
-        environment: selectedEnvironment,
-        displayLabel: label || undefined,
-        ...fields,
-      })
-      setSaved('Transportista conectado.')
-      router.refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error conectando el transportista')
-    } finally {
-      setSavingCredentials(false)
-    }
-  }
-
-  function handleDisconnectClick() {
-    if (!carrier) return
-    setConfirmingDisconnect(true)
-  }
-
-  async function handleDisconnect() {
-    if (!carrier) return
-    setConfirmingDisconnect(false)
-    setDisconnecting(true)
-    setError('')
-    try {
-      await disconnectShippingCarrier(carrier)
-      router.refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al desconectar')
-    } finally {
-      setDisconnecting(false)
-    }
-  }
-
   async function handleSaveOrigin(e: React.FormEvent) {
     e.preventDefault()
     setSavingOrigin(true)
@@ -191,6 +141,45 @@ export function ShippingSettingsForm({
       setError(err instanceof Error ? err.message : 'Error guardando la dirección')
     } finally {
       setSavingOrigin(false)
+    }
+  }
+
+  async function handleToggleCarrier(code: string) {
+    const next = carriers.includes(code) ? carriers.filter((c) => c !== code) : [...carriers, code]
+    if (!next.length) {
+      setError('Elegí al menos un correo.')
+      return
+    }
+    const prev = carriers
+    setCarriers(next)
+    setSavingCarriers(true)
+    setError('')
+    setSaved('')
+    try {
+      await updateShippingCarriers(next)
+      router.refresh()
+    } catch (err) {
+      setCarriers(prev)
+      setError(err instanceof Error ? err.message : 'Error guardando los correos')
+    } finally {
+      setSavingCarriers(false)
+    }
+  }
+
+  async function handleSavePackage(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingPackage(true)
+    setError('')
+    setSaved('')
+    try {
+      const num = (v: string) => (v.trim() === '' ? null : Number(v))
+      await updateShippingDefaults({ weightGrams: num(pkgWeight), lengthCm: num(pkgLength), widthCm: num(pkgWidth), heightCm: num(pkgHeight) })
+      setSaved('Paquete típico guardado.')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error guardando el paquete')
+    } finally {
+      setSavingPackage(false)
     }
   }
 
@@ -312,15 +301,6 @@ export function ShippingSettingsForm({
 
   return (
     <div className="grid gap-3">
-      <ConfirmDialog
-        open={confirmingDisconnect}
-        title="Desconectar transportista"
-        message="El envío calculado se apaga hasta que conectes uno nuevo."
-        confirmText="Desconectar"
-        danger
-        onConfirm={handleDisconnect}
-        onCancel={() => setConfirmingDisconnect(false)}
-      />
       {error && (
         <div className="adm-alert" style={{ backgroundColor: 'var(--adm-bad-soft)', color: 'var(--adm-bad)' }}>
           {error}
@@ -384,7 +364,7 @@ export function ShippingSettingsForm({
         {!canEnable && !enabled && (
           <p className="px-4 pt-2 text-[12px] md:px-5" style={{ color: 'var(--adm-warn)' }}>
             {mode === 'carrier'
-              ? 'Para activarlo, conectá un transportista y guardá la dirección de origen.'
+              ? 'Para activarlo, guardá la dirección desde donde despachás.'
               : 'Para activarlo, cargá y guardá el costo para el resto del país.'}
           </p>
         )}
@@ -393,8 +373,8 @@ export function ShippingSettingsForm({
           <div className="grid gap-2 sm:grid-cols-2">
             {(
               [
-                ['fixed_zones', 'Precio fijo por provincia', 'Vos ponés cuánto cuesta. No hace falta cuenta en el correo.'],
-                ['carrier', 'Lo calcula el correo', 'Correo Argentino o Andreani cotizan según peso y destino.'],
+                ['fixed_zones', 'Manual: precio fijo por provincia', 'Vos ponés cuánto cuesta. No hace falta ninguna cuenta.'],
+                ['carrier', 'Automático: lo calcula el correo', 'Cotiza Andreani, Correo Argentino, OCA y otros según peso y destino.'],
               ] as const
             ).map(([m, title, desc]) => (
               <button
@@ -461,77 +441,27 @@ export function ShippingSettingsForm({
 
           {mode === 'carrier' && (
             <div className="grid gap-4">
-              <div className="rounded-[12px] p-3.5" style={{ border: '1px solid var(--adm-line)' }}>
-                <p className="adm-label">Transportista</p>
-                {connected ? (
-                  <div className="flex items-center gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[14px] font-medium">
-                        {carrier === 'andreani' ? 'Andreani' : 'Correo Argentino'}
-                        {environment === 'test' && <span className="adm-badge adm-b-warn ml-2">Prueba</span>}
-                      </p>
-                      {displayLabel && <p className="text-[12px]" style={{ color: 'var(--adm-muted)' }}>{displayLabel}</p>}
-                    </div>
-                    <button type="button" onClick={handleDisconnectClick} disabled={disconnecting} className="adm-btn adm-btn-sm">
-                      {disconnecting ? 'Desconectando…' : 'Desconectar'}
+              <div className="grid gap-3 rounded-[12px] p-3.5" style={{ border: '1px solid var(--adm-line)' }}>
+                <div>
+                  <p className="adm-label !mb-0">Correos con los que trabajás</p>
+                  <p className="text-[12px]" style={{ color: 'var(--adm-muted)' }}>
+                    Cotizamos solo con los que marques, según el peso del carrito y el destino. Si marcás más de uno, se cobra el más barato. No necesitás cuenta en ningún correo.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {SHIPPING_CARRIERS.map(([code, name]) => (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => handleToggleCarrier(code)}
+                      disabled={savingCarriers}
+                      className="adm-chip"
+                      data-on={carriers.includes(code)}
+                    >
+                      {name}
                     </button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleSaveCredentials} className="grid gap-3">
-                    <div className="flex gap-2">
-                      {(['correo_argentino', 'andreani'] as const).map((c) => (
-                        <button key={c} type="button" onClick={() => setSelectedCarrier(c)} className="adm-chip" data-on={selectedCarrier === c}>
-                          {c === 'andreani' ? 'Andreani' : 'Correo Argentino'}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="rounded-[10px] p-3 text-[13px]" style={{ backgroundColor: '#f6f6f4' }}>
-                      <p className="font-medium">¿No tenés estos datos todavía?</p>
-                      {selectedCarrier === 'correo_argentino' ? (
-                        <p className="mt-1" style={{ color: 'var(--adm-muted)' }}>
-                          Pedí el alta como cliente con contrato en{' '}
-                          <a href="https://integracion.correoargentino.com.ar" target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--adm-ink)' }}>
-                            integracion.correoargentino.com.ar
-                          </a>{' '}
-                          (o en cualquier sucursal comercial). Te dan User Token, Password Token y Customer ID: los tres campos de abajo.
-                        </p>
-                      ) : (
-                        <p className="mt-1" style={{ color: 'var(--adm-muted)' }}>
-                          Date de alta como Andreani PyME con acceso a la API en{' '}
-                          <a href="https://pymes.andreani.com/integraciones" target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--adm-ink)' }}>
-                            pymes.andreani.com/integraciones
-                          </a>
-                          . Te dan Usuario, Contraseña y Código de contrato: los tres campos de abajo.
-                        </p>
-                      )}
-                    </div>
-                    {selectedCarrier === 'correo_argentino' ? (
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <input value={userToken} onChange={(e) => setUserToken(e.target.value)} placeholder="User Token" required className="adm-input" />
-                        <input type="password" value={passwordToken} onChange={(e) => setPasswordToken(e.target.value)} placeholder="Password Token" required className="adm-input" />
-                        <input value={customerId} onChange={(e) => setCustomerId(e.target.value)} placeholder="Customer ID" required className="adm-input sm:col-span-2" />
-                      </div>
-                    ) : (
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Usuario" required className="adm-input" />
-                        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" required className="adm-input" />
-                        <input value={contrato} onChange={(e) => setContrato(e.target.value)} placeholder="Código de contrato" required className="adm-input sm:col-span-2" />
-                      </div>
-                    )}
-                    <label className="flex items-center gap-2 text-[13px]" style={{ color: 'var(--adm-muted)' }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedEnvironment === 'test'}
-                        onChange={(e) => setSelectedEnvironment(e.target.checked ? 'test' : 'production')}
-                        className="adm-check"
-                      />
-                      Son credenciales de prueba
-                    </label>
-                    <button type="submit" disabled={savingCredentials} className="adm-btn adm-btn-pri w-fit">
-                      {savingCredentials ? 'Conectando…' : 'Conectar transportista'}
-                    </button>
-                  </form>
-                )}
+                  ))}
+                </div>
               </div>
 
               <form onSubmit={handleSaveOrigin} className="grid gap-3 rounded-[12px] p-3.5" style={{ border: '1px solid var(--adm-line)' }}>
@@ -558,6 +488,32 @@ export function ShippingSettingsForm({
                 </div>
                 <button type="submit" disabled={savingOrigin} className="adm-btn w-fit">
                   {savingOrigin ? 'Guardando…' : 'Guardar dirección'}
+                </button>
+              </form>
+
+              <form onSubmit={handleSavePackage} className="grid gap-3 rounded-[12px] p-3.5" style={{ border: '1px solid var(--adm-line)' }}>
+                <div>
+                  <p className="adm-label !mb-0">Paquete típico</p>
+                  <p className="text-[12px]" style={{ color: 'var(--adm-muted)' }}>
+                    El correo cotiza por peso y tamaño. Se usa para cada producto que no tenga peso y medidas propios (los cargás en el producto, en &quot;Peso y medidas&quot;). Si lo dejás vacío se usa 500 g y 20×15×10 cm.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <Field label="Peso (g)">
+                    <input type="number" min={0} value={pkgWeight} onChange={(e) => setPkgWeight(e.target.value)} placeholder="500" className="adm-input" />
+                  </Field>
+                  <Field label="Largo (cm)">
+                    <input type="number" min={0} value={pkgLength} onChange={(e) => setPkgLength(e.target.value)} placeholder="20" className="adm-input" />
+                  </Field>
+                  <Field label="Ancho (cm)">
+                    <input type="number" min={0} value={pkgWidth} onChange={(e) => setPkgWidth(e.target.value)} placeholder="15" className="adm-input" />
+                  </Field>
+                  <Field label="Alto (cm)">
+                    <input type="number" min={0} value={pkgHeight} onChange={(e) => setPkgHeight(e.target.value)} placeholder="10" className="adm-input" />
+                  </Field>
+                </div>
+                <button type="submit" disabled={savingPackage} className="adm-btn w-fit">
+                  {savingPackage ? 'Guardando…' : 'Guardar paquete'}
                 </button>
               </form>
             </div>

@@ -522,7 +522,7 @@ export async function getShippingStatus() {
 }
 
 export async function saveShippingCredentials(data: {
-  carrier: 'correo_argentino' | 'andreani'
+  carrier: 'correo_argentino' | 'andreani' | 'envia'
   environment: 'test' | 'production'
   displayLabel?: string
   [field: string]: unknown
@@ -534,7 +534,7 @@ export async function saveShippingCredentials(data: {
   revalidateStorefront()
 }
 
-export async function disconnectShippingCarrier(carrier: 'correo_argentino' | 'andreani') {
+export async function disconnectShippingCarrier(carrier: 'correo_argentino' | 'andreani' | 'envia') {
   await getOrgParaEditar()
   const supabase = await createClient()
   await invokeShippingFunction(supabase, 'shipping-setup', { action: 'disconnect', carrier })
@@ -576,6 +576,9 @@ export async function updateShippingSettings(data: {
       shipping_enabled: data.enabled,
       free_shipping_threshold: data.freeShippingThreshold,
       shipping_pricing_mode: data.pricingMode,
+      // El cálculo automático usa la cuenta de Envia de la plataforma (secreto ENVIA_API_KEY
+      // de las Edge Functions): la tienda no conecta nada propio.
+      ...(data.pricingMode === 'carrier' ? { shipping_carrier: 'envia' } : {}),
     })
     .eq('id', ctx.storeSettingsId)
 
@@ -583,7 +586,7 @@ export async function updateShippingSettings(data: {
     if (error.message.includes('store_settings_shipping_requires_carrier')) {
       throw new Error(
         data.pricingMode === 'carrier'
-          ? 'Conectá un transportista antes de habilitar el envío calculado.'
+          ? 'Guardá la dirección de origen antes de habilitar el envío automático.'
           : 'Cargá un costo de envío por defecto antes de habilitar el envío calculado.',
       )
     }
@@ -616,6 +619,28 @@ export async function updatePickupInfo(data: { address: string; hours: string })
   revalidateStorefront()
 }
 
+// Correos con los que trabaja la tienda en el cálculo automático (códigos de Envia: andreani,
+// correoArgentino, oca). Se guarda en extra.shipping_carriers; shipping-quote cotiza solo esos
+// y cobra el más barato. Vacío/ausente = los tres.
+export async function updateShippingCarriers(carriers: string[]) {
+  const ctx = await getOrgParaEditar()
+
+  const supabase = await createClient()
+  const { data: row, error: readError } = await supabase
+    .from('store_settings')
+    .select('extra')
+    .eq('id', ctx.storeSettingsId)
+    .single()
+  if (readError) throw new Error(readError.message)
+
+  const extra = { ...((row?.extra as Record<string, unknown> | null) ?? {}) }
+  extra.shipping_carriers = carriers
+
+  const { error } = await supabase.from('store_settings').update({ extra }).eq('id', ctx.storeSettingsId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/configuracion')
+}
+
 // Montos fijos por zona (alternativa al envío automático): un costo por defecto + overrides
 // opcionales por provincia (ej. Buenos Aires $X, resto del país el default). Tampoco es
 // secreto, mismo .update() directo.
@@ -634,6 +659,31 @@ export async function updateFixedShippingZones(data: {
   if (error) throw new Error(error.message)
   revalidatePath('/admin/configuracion')
   revalidateStorefront()
+}
+
+// Paquete típico de la tienda: lo usa la cotización con el correo para cada producto que no
+// tenga peso/medidas propios (store_settings.shipping_default_*). Mismo .update() directo.
+export async function updateShippingDefaults(data: {
+  weightGrams: number | null
+  lengthCm: number | null
+  widthCm: number | null
+  heightCm: number | null
+}) {
+  const ctx = await getOrgParaEditar()
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('store_settings')
+    .update({
+      shipping_default_weight_grams: data.weightGrams,
+      shipping_default_length_cm: data.lengthCm,
+      shipping_default_width_cm: data.widthCm,
+      shipping_default_height_cm: data.heightCm,
+    })
+    .eq('id', ctx.storeSettingsId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/configuracion')
 }
 
 // Sugerencias de imágenes — para productos cargados desde bg-gestion sin foto. Busca candidatas

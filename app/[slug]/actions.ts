@@ -158,6 +158,7 @@ async function buildOnlineOrder(
   let shippingCost = 0
   let shippingOriginalCost: number | null = null
   let shippingCarrier: string | null = null
+  let shippingQuoteReference: string | null = null
   if (delivery.method === 'shipping' && delivery.address) {
     const { data: settings } = await supabase
       .from('store_settings')
@@ -166,13 +167,16 @@ async function buildOnlineOrder(
       .single()
     shippingCarrier = settings?.shipping_carrier ?? null
 
-    const result = await invokeShippingFunction<{ cost: number; originalCost: number }>(supabase, 'shipping-quote', {
+    const result = await invokeShippingFunction<{ cost: number; originalCost: number; quoteReference: string | null }>(supabase, 'shipping-quote', {
       organizationId,
       destinationPostalCode: delivery.address.postalCode,
       destinationProvince: delivery.address.province,
       items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
     })
     shippingCost = result.cost
+    // Con qué correo y servicio salió la cotización (ej. "Oca Puerta a Puerta"): así el dueño
+    // sabe a qué correo llevar el paquete.
+    shippingQuoteReference = result.quoteReference ?? null
     // Solo se guarda cuando hay descuento real -- así el resto del código (pantalla de
     // pedido, admin, emails) puede usar "shipping_original_cost != null" como el único chequeo
     // de "¿este envío se lo bonificamos?", sin tener que comparar números en cada lugar.
@@ -202,6 +206,7 @@ async function buildOnlineOrder(
       customer_note: delivery.customerNote || null,
       delivery_method: delivery.method,
       shipping_carrier: shippingCarrier,
+      shipping_quote_reference: shippingQuoteReference,
       // A diferencia de "|| null": 0 es un costo de envío legítimo (envío gratis por monto
       // mínimo), no debe perderse como null -- null acá significa "no es un pedido con envío".
       shipping_cost: delivery.method === 'shipping' ? shippingCost : null,
