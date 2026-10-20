@@ -19,7 +19,13 @@ function parseThreshold(value: string): number | null {
   return value.trim() === '' ? null : Number(value)
 }
 
-type Carrier = 'correo_argentino' | 'andreani'
+type Carrier = 'correo_argentino' | 'andreani' | 'envia'
+
+const CARRIER_NAME: Record<Carrier, string> = {
+  envia: 'Envia.com',
+  andreani: 'Andreani',
+  correo_argentino: 'Correo Argentino',
+}
 type PricingMode = 'carrier' | 'fixed_zones'
 
 type OriginAddress = {
@@ -67,7 +73,7 @@ export function ShippingSettingsForm({
 
   const [mode, setMode] = useState<PricingMode>(pricingMode)
 
-  const [selectedCarrier, setSelectedCarrier] = useState<Carrier>(carrier ?? 'correo_argentino')
+  const [selectedCarrier, setSelectedCarrier] = useState<Carrier>(carrier ?? 'envia')
   const [selectedEnvironment, setSelectedEnvironment] = useState<'test' | 'production'>(environment ?? 'production')
   const [label, setLabel] = useState(displayLabel ?? '')
 
@@ -75,6 +81,9 @@ export function ShippingSettingsForm({
   const [userToken, setUserToken] = useState('')
   const [passwordToken, setPasswordToken] = useState('')
   const [customerId, setCustomerId] = useState('')
+
+  // Envia.com
+  const [apiKey, setApiKey] = useState('')
 
   // Andreani
   const [username, setUsername] = useState('')
@@ -140,9 +149,11 @@ export function ShippingSettingsForm({
     setSaved('')
     try {
       const fields =
-        selectedCarrier === 'correo_argentino'
-          ? { userToken, passwordToken, customerId }
-          : { username, password, contrato, cliente }
+        selectedCarrier === 'envia'
+          ? { apiKey }
+          : selectedCarrier === 'correo_argentino'
+            ? { userToken, passwordToken, customerId }
+            : { username, password, contrato, cliente }
 
       await saveShippingCredentials({
         carrier: selectedCarrier,
@@ -468,7 +479,7 @@ export function ShippingSettingsForm({
                   <div className="flex items-center gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-[14px] font-medium">
-                        {carrier === 'andreani' ? 'Andreani' : 'Correo Argentino'}
+                        {carrier ? CARRIER_NAME[carrier] : ''}
                         {environment === 'test' && <span className="adm-badge adm-b-warn ml-2">Prueba</span>}
                       </p>
                       {displayLabel && <p className="text-[12px]" style={{ color: 'var(--adm-muted)' }}>{displayLabel}</p>}
@@ -480,15 +491,23 @@ export function ShippingSettingsForm({
                 ) : (
                   <form onSubmit={handleSaveCredentials} className="grid gap-3">
                     <div className="flex gap-2">
-                      {(['correo_argentino', 'andreani'] as const).map((c) => (
+                      {(['envia', 'andreani', 'correo_argentino'] as const).map((c) => (
                         <button key={c} type="button" onClick={() => setSelectedCarrier(c)} className="adm-chip" data-on={selectedCarrier === c}>
-                          {c === 'andreani' ? 'Andreani' : 'Correo Argentino'}
+                          {CARRIER_NAME[c]}
                         </button>
                       ))}
                     </div>
                     <div className="rounded-[10px] p-3 text-[13px]" style={{ backgroundColor: '#f6f6f4' }}>
                       <p className="font-medium">¿No tenés estos datos todavía?</p>
-                      {selectedCarrier === 'correo_argentino' ? (
+                      {selectedCarrier === 'envia' ? (
+                        <p className="mt-1" style={{ color: 'var(--adm-muted)' }}>
+                          No necesitás contrato con ningún correo. Registrate gratis en{' '}
+                          <a href="https://accounts.envia.com/signup" target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--adm-ink)' }}>
+                            envia.com
+                          </a>{' '}
+                          y copiá la clave desde Desarrolladores → API Keys. Cotiza Andreani, Correo Argentino, OCA y otros, y la tienda cobra el más barato.
+                        </p>
+                      ) : selectedCarrier === 'correo_argentino' ? (
                         <p className="mt-1" style={{ color: 'var(--adm-muted)' }}>
                           Pedí el alta como cliente con contrato en{' '}
                           <a href="https://integracion.correoargentino.com.ar" target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--adm-ink)' }}>
@@ -502,7 +521,9 @@ export function ShippingSettingsForm({
                         </p>
                       )}
                     </div>
-                    {selectedCarrier === 'correo_argentino' ? (
+                    {selectedCarrier === 'envia' ? (
+                      <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Clave de API de Envia" required className="adm-input" />
+                    ) : selectedCarrier === 'correo_argentino' ? (
                       <div className="grid gap-3 sm:grid-cols-2">
                         <input value={userToken} onChange={(e) => setUserToken(e.target.value)} placeholder="User Token" required className="adm-input" />
                         <input type="password" value={passwordToken} onChange={(e) => setPasswordToken(e.target.value)} placeholder="Password Token" required className="adm-input" />

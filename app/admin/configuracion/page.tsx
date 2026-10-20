@@ -111,7 +111,7 @@ async function Envios({ settings, branchId }: { settings: Settings; branchId: st
       pickupAddress={typeof settings.extra?.pickup_address === 'string' ? settings.extra.pickup_address : ''}
       pickupHours={typeof settings.extra?.pickup_hours === 'string' ? settings.extra.pickup_hours : ''}
       connected={shippingStatus.connected}
-      carrier={shippingStatus.carrier as 'correo_argentino' | 'andreani' | null}
+      carrier={shippingStatus.carrier as 'correo_argentino' | 'andreani' | 'envia' | null}
       displayLabel={shippingStatus.displayLabel}
       environment={shippingStatus.environment as 'test' | 'production' | null}
       origin={shippingStatus.origin}

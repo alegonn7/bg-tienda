@@ -522,7 +522,7 @@ export async function getShippingStatus() {
 }
 
 export async function saveShippingCredentials(data: {
-  carrier: 'correo_argentino' | 'andreani'
+  carrier: 'correo_argentino' | 'andreani' | 'envia'
   environment: 'test' | 'production'
   displayLabel?: string
   [field: string]: unknown
@@ -534,7 +534,7 @@ export async function saveShippingCredentials(data: {
   revalidateStorefront()
 }
 
-export async function disconnectShippingCarrier(carrier: 'correo_argentino' | 'andreani') {
+export async function disconnectShippingCarrier(carrier: 'correo_argentino' | 'andreani' | 'envia') {
   await getOrgParaEditar()
   const supabase = await createClient()
   await invokeShippingFunction(supabase, 'shipping-setup', { action: 'disconnect', carrier })

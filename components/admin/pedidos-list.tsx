@@ -67,6 +67,7 @@ type Range = 'todo' | '7' | '30' | '90'
 const CARRIER_LABEL: Record<string, string> = {
   correo_argentino: 'Correo Argentino',
   andreani: 'Andreani',
+  envia: 'Envia.com',
 }
 
 const TONE_CLASS = { ok: 'adm-b-ok', warn: 'adm-b-warn', bad: 'adm-b-bad', info: 'adm-b-info', gray: 'adm-b-gray' }

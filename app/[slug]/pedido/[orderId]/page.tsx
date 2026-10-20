@@ -28,7 +28,7 @@ type PublicOrder = {
   mp_fee_amount: number | null
   total: number | null
   delivery_method: 'pickup' | 'shipping' | null
-  shipping_carrier: 'correo_argentino' | 'andreani' | null
+  shipping_carrier: 'correo_argentino' | 'andreani' | 'envia' | null
   shipping_street: string | null
   shipping_number: string | null
   shipping_floor_apartment: string | null
@@ -191,7 +191,7 @@ export default async function OrderConfirmationPage({
                 </div>
                 {shipped && order.tracking_code && (
                   <p className="mt-5 rounded-[10px] px-3.5 py-2.5 text-[14px]" style={{ backgroundColor: 'var(--st-ok-soft)' }}>
-                    {order.shipping_carrier ? `Enviado por ${CARRIER_LABEL[order.shipping_carrier] ?? order.shipping_carrier}` : 'Enviado'} · código de seguimiento: <b>{order.tracking_code}</b>
+                    {order.shipping_carrier && order.shipping_carrier !== 'envia' ? `Enviado por ${CARRIER_LABEL[order.shipping_carrier] ?? order.shipping_carrier}` : 'Enviado'} · código de seguimiento: <b>{order.tracking_code}</b>
                   </p>
                 )}
               </div>
