@@ -80,6 +80,7 @@ export function ShippingSettingsForm({
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [contrato, setContrato] = useState('')
+  const [cliente, setCliente] = useState('')
 
   const [street, setStreet] = useState(origin?.shipping_origin_street ?? '')
   const [number, setNumber] = useState(origin?.shipping_origin_number ?? '')
@@ -141,7 +142,7 @@ export function ShippingSettingsForm({
       const fields =
         selectedCarrier === 'correo_argentino'
           ? { userToken, passwordToken, customerId }
-          : { username, password, contrato }
+          : { username, password, contrato, cliente }
 
       await saveShippingCredentials({
         carrier: selectedCarrier,
@@ -497,11 +498,7 @@ export function ShippingSettingsForm({
                         </p>
                       ) : (
                         <p className="mt-1" style={{ color: 'var(--adm-muted)' }}>
-                          Date de alta como Andreani PyME con acceso a la API en{' '}
-                          <a href="https://pymes.andreani.com/integraciones" target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--adm-ink)' }}>
-                            pymes.andreani.com/integraciones
-                          </a>
-                          . Te dan Usuario, Contraseña y Código de contrato: los tres campos de abajo.
+                          No salen de la sección Integraciones de andreani.com (esa solo ofrece WooCommerce y Tiendanube). Pedíselos a tu ejecutivo comercial de Andreani: acceso a la API con usuario y contraseña, código de contrato de envío a domicilio y número de cliente. Si te dan primero los de prueba (QA), cargalos y marcá la casilla.
                         </p>
                       )}
                     </div>
@@ -515,7 +512,8 @@ export function ShippingSettingsForm({
                       <div className="grid gap-3 sm:grid-cols-2">
                         <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Usuario" required className="adm-input" />
                         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" required className="adm-input" />
-                        <input value={contrato} onChange={(e) => setContrato(e.target.value)} placeholder="Código de contrato" required className="adm-input sm:col-span-2" />
+                        <input value={contrato} onChange={(e) => setContrato(e.target.value)} placeholder="Código de contrato" required className="adm-input" />
+                        <input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Número de cliente (ej. CL0001234)" className="adm-input" />
                       </div>
                     )}
                     <label className="flex items-center gap-2 text-[13px]" style={{ color: 'var(--adm-muted)' }}>
