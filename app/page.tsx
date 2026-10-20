@@ -87,7 +87,7 @@ const features = [
   {
     icon: Truck,
     title: 'Envíos a todo el país',
-    text: 'Cotización automática con Correo Argentino o Andreani, montos fijos por provincia, o retiro en el local.',
+    text: 'Cotización automática con Andreani, Correo Argentino y OCA sin cuenta propia, montos fijos por provincia, o retiro en el local.',
   },
   {
     icon: ClipboardList,
@@ -142,7 +142,7 @@ const faqs = [
   },
   {
     q: '¿Cómo funcionan los envíos?',
-    a: 'Podés ofrecer retiro en el local y envío a domicilio. El costo de envío se cotiza automáticamente con Correo Argentino o Andreani (usando tu cuenta con ellos) o con montos fijos que vos definís por provincia.',
+    a: 'Podés ofrecer retiro en el local y envío a domicilio. El costo de envío se cotiza automáticamente con Andreani, Correo Argentino, OCA y otros (no necesitás cuenta con ningún correo) o con montos fijos que vos definís por provincia.',
   },
   {
     q: '¿Puedo usar mi logo y los colores de mi marca?',

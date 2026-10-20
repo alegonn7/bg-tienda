@@ -576,6 +576,9 @@ export async function updateShippingSettings(data: {
       shipping_enabled: data.enabled,
       free_shipping_threshold: data.freeShippingThreshold,
       shipping_pricing_mode: data.pricingMode,
+      // El cálculo automático usa la cuenta de Envia de la plataforma (secreto ENVIA_API_KEY
+      // de las Edge Functions): la tienda no conecta nada propio.
+      ...(data.pricingMode === 'carrier' ? { shipping_carrier: 'envia' } : {}),
     })
     .eq('id', ctx.storeSettingsId)
 
@@ -583,7 +586,7 @@ export async function updateShippingSettings(data: {
     if (error.message.includes('store_settings_shipping_requires_carrier')) {
       throw new Error(
         data.pricingMode === 'carrier'
-          ? 'Conectá un transportista antes de habilitar el envío calculado.'
+          ? 'Guardá la dirección de origen antes de habilitar el envío automático.'
           : 'Cargá un costo de envío por defecto antes de habilitar el envío calculado.',
       )
     }
