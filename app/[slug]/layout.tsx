@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { getStoreBySlug } from '@/lib/tenant'
 import { metaDescription, storeDisplayName } from '@/lib/seo'
 import { CartProvider } from '@/components/cart-context'
+import { StoreTracker } from '@/components/store-tracker'
 
 // Las páginas públicas de la tienda se cachean (ISR): la primera visita a cada tienda/producto
 // las renderiza y las siguientes se sirven desde caché, sin ir a Supabase. Los cambios hechos
@@ -76,7 +77,10 @@ export default async function StoreLayout({
     >
       {/* CartProvider por tienda (key=slug): si el visitante navega de una tienda a otra, el
           carrito no debe arrastrar productos de la tienda anterior. */}
-      <CartProvider key={slug}>{children}</CartProvider>
+      <CartProvider key={slug} organizationId={store.organizationId}>
+        <StoreTracker organizationId={store.organizationId} />
+        {children}
+      </CartProvider>
     </div>
   )
 }

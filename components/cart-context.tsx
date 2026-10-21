@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import type { Product } from '@/lib/products'
+import { trackStoreEvent } from '@/lib/track'
 
 export type CartItem = {
   key: string
@@ -29,7 +30,7 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null)
 
-export function CartProvider({ children }: { children: ReactNode }) {
+export function CartProvider({ children, organizationId }: { children: ReactNode; organizationId: string }) {
   const [items, setItems] = useState<CartItem[]>([])
   const [isOpen, setIsOpen] = useState(false)
 
@@ -48,7 +49,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return [...prev, { key, product, size, quantity }]
     })
     setIsOpen(true)
-  }, [])
+    trackStoreEvent(organizationId, 'add_to_cart', { productId: product.id, quantity })
+  }, [organizationId])
 
   const removeItem = useCallback((key: string) => {
     setItems((prev) => prev.filter((i) => i.key !== key))
