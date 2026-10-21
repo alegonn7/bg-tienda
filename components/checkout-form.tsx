@@ -20,7 +20,7 @@ const PLATFORM_FEE_PERCENTAGE = 1
 
 type DeliveryMethod = 'pickup' | 'shipping'
 type PaymentMethod = 'mercadopago' | 'transfer'
-type Quote = { cost: number; originalCost: number; isFree: boolean; estimatedDays: number | null }
+type Quote = { cost: number; originalCost: number; isFree: boolean; estimatedDays: number | null; postalCode: string }
 
 function Section({ n, title, aside, children }: { n: number; title: string; aside?: string; children: React.ReactNode }) {
   return (
@@ -122,7 +122,13 @@ export function CheckoutForm({ store }: { store: Store }) {
           province,
           items.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
         )
-        if (!cancelled) setQuote({ cost: result.cost, originalCost: result.originalCost, isFree: result.isFree, estimatedDays: result.estimatedDays })
+        if (!cancelled) setQuote({
+            cost: result.cost,
+            originalCost: result.originalCost,
+            isFree: result.isFree,
+            estimatedDays: result.estimatedDays,
+            postalCode: postalCode.trim(),
+          })
       } catch (err) {
         if (!cancelled) setQuoteError(err instanceof Error ? err.message : 'No se pudo calcular el envío')
       } finally {
@@ -330,7 +336,9 @@ export function CheckoutForm({ store }: { store: Store }) {
                         </span>
                       ) : (
                         <span>
-                          Envío a {province}: {formatPrice(quote.cost)}
+                          {/* La localidad y no la provincia: "Envío a Buenos Aires" confundía a quien vive en La Plata.
+                              La localidad se completa más abajo; mientras tanto, el código postal. */}
+                          {city.trim() ? `Envío a ${city.trim()}` : `Envío al CP ${quote.postalCode}`}: {formatPrice(quote.cost)}
                           {freeFrom != null && freeFrom > subtotal && ` · te faltan ${formatPrice(freeFrom - subtotal)} para que sea gratis`}
                         </span>
                       )}
