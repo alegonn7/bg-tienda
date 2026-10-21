@@ -49,7 +49,7 @@ export function CartProvider({ children, organizationId }: { children: ReactNode
       return [...prev, { key, product, size, quantity }]
     })
     setIsOpen(true)
-    trackStoreEvent(organizationId, 'add_to_cart', product.id, quantity)
+    trackStoreEvent(organizationId, 'add_to_cart', { productId: product.id, quantity })
   }, [organizationId])
 
   const removeItem = useCallback((key: string) => {

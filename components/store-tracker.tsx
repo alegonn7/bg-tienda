@@ -12,9 +12,9 @@ export function StoreTracker({ organizationId }: { organizationId: string }) {
   const pathname = usePathname()
   useEffect(() => {
     if (!pathname) return
-    trackStoreEvent(organizationId, 'page_view')
+    trackStoreEvent(organizationId, 'page_view', { path: pathname })
     const product = PRODUCT_PATH.exec(pathname)
-    if (product) trackStoreEvent(organizationId, 'product_view', product[1])
+    if (product) trackStoreEvent(organizationId, 'product_view', { productId: product[1] })
   }, [organizationId, pathname])
   return null
 }

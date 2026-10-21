@@ -3,7 +3,8 @@
 // datos personales; la función track_store_event (Supabase) valida tienda y producto.
 //
 // fetch directo a la RPC (y no el cliente de Supabase) para no sumarle peso a la tienda, con
-// keepalive para que el evento salga aunque el visitante cambie de página enseguida.
+// keepalive para que el evento salga aunque el visitante cambie de página enseguida. Las recargas
+// no cuentan doble: la función ignora la misma página o producto del mismo navegador por 30 minutos.
 
 type StoreEvent = 'page_view' | 'product_view' | 'add_to_cart'
 
@@ -26,7 +27,11 @@ function visitorId(): string {
   }
 }
 
-export function trackStoreEvent(organizationId: string, event: StoreEvent, productId?: string, quantity?: number) {
+export function trackStoreEvent(
+  organizationId: string,
+  event: StoreEvent,
+  { productId, quantity, path }: { productId?: string; quantity?: number; path?: string } = {},
+) {
   if (typeof window === 'undefined' || navigator.webdriver || BOT.test(navigator.userAgent)) return
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -41,6 +46,7 @@ export function trackStoreEvent(organizationId: string, event: StoreEvent, produ
       p_visitor_id: visitorId(),
       p_product_id: productId ?? null,
       p_quantity: quantity ?? null,
+      p_path: path ?? null,
     }),
   }).catch(() => {
     // Una estadística perdida no tiene que molestar al que compra.
