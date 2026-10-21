@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Eye, MousePointerClick, ShoppingBag, ShoppingCart, Users } from 'lucide-react'
+import { Eye, ShoppingBag, ShoppingCart, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgForAdminRead } from '@/lib/tenant'
 import { Page, PageHeader } from '@/components/admin/ui'
@@ -8,6 +8,7 @@ import { Page, PageHeader } from '@/components/admin/ui'
 type Stats = {
   days: number
   visitors: number
+  visits: number
   page_views: number
   cart_visitors: number
   cart_units: number
@@ -70,25 +71,25 @@ function StatsView({ stats }: { stats: Stats }) {
   return (
     <>
       <div className="mb-3 grid grid-cols-2 gap-2.5 md:mb-[18px] md:grid-cols-4 md:gap-3.5">
-        <Kpi icon={<Users />} label="Visitantes" value={stats.visitors} note={`${stats.page_views} páginas vistas`} />
+        <Kpi icon={<Eye />} label="Visitas" value={stats.visits} note={`${stats.page_views} páginas vistas`} />
+        <Kpi icon={<Users />} label="Visitantes únicos" value={stats.visitors} note="Cada persona cuenta una vez" />
         <Kpi
           icon={<ShoppingCart />}
           label="Agregaron al carrito"
           value={stats.cart_visitors}
           note={`${stats.cart_units} ${stats.cart_units === 1 ? 'unidad' : 'unidades'} en total`}
         />
-        <Kpi icon={<ShoppingBag />} label="Pedidos" value={stats.orders} note="Sin contar cancelados" />
         <Kpi
-          icon={<MousePointerClick />}
-          label="Conversión"
-          value={`${conversion.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`}
-          note="Pedidos cada 100 visitantes"
+          icon={<ShoppingBag />}
+          label="Pedidos"
+          value={stats.orders}
+          note={`${conversion.toLocaleString('es-AR', { maximumFractionDigits: 1 })}% de los visitantes compró`}
         />
       </div>
 
       <div className="adm-card mb-3 md:mb-4">
         <div className="adm-card-h">
-          <h3>Visitantes por día</h3>
+          <h3>Visitantes únicos por día</h3>
           <span className="text-[13px]" style={{ color: 'var(--adm-muted)' }}>
             Últimos {stats.days} días
           </span>
@@ -142,7 +143,7 @@ function StatsView({ stats }: { stats: Stats }) {
 
       <p className="mt-4 adm-hint">
         <Eye className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-        Cada navegador cuenta como un visitante. No se guarda ningún dato personal de quien visita.
+        Una visita es cada vez que alguien entra a la tienda (si vuelve después de 30 minutos, es una visita nueva). Un visitante único es cada persona, aunque entre varias veces. No se guarda ningún dato personal de quien visita.
       </p>
     </>
   )
