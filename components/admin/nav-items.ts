@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   CreditCard,
   Image as ImageIcon,
   LayoutDashboard,
@@ -33,6 +34,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: 'Mi tienda',
     items: [
+      { href: '/admin/estadisticas', label: 'Estadísticas', icon: BarChart3 },
       { href: '/admin/hero', label: 'Banner', icon: ImageIcon },
       { href: '/admin/personalizacion', label: 'Apariencia', icon: Palette },
       { href: '/admin/configuracion', label: 'Pagos y envíos', icon: Settings },
