@@ -109,8 +109,9 @@ async function Pagos({ settings, mpConnected, mpError }: { settings: Settings; m
   )
 }
 
-// Feed de Google Merchant Center (app/[slug]/feed.xml): la URL para copiar, cuántos productos
-// entran y los pasos para cargarlo. Los números salen del mismo catálogo público que lee el feed.
+// Feed de Google Merchant Center (app/[slug]/feed.xml): la URL para copiar y cuántos productos
+// entran. Todas las tiendas comparten dominio, así que Google no deja que cada una lo reclame con su
+// propio Merchant Center: lo carga Binary Goats desde su cuenta avanzada (una subcuenta por tienda). Los números salen del mismo catálogo público que lee el feed.
 async function GoogleShopping({ slug, settings }: { slug: string; settings: Settings }) {
   const feedUrl = `${SITE_URL}/${slug}/feed.xml`
   const store = await getStoreBySlug(slug).catch(() => null)
@@ -118,13 +119,6 @@ async function GoogleShopping({ slug, settings }: { slug: string; settings: Sett
   const { included, skipped } = store ? feedItems(store, products) : { included: [], skipped: [] }
   const noPhoto = skipped.filter((s) => s.reason === 'sin foto').length
   const noBrand = included.filter((p) => !p.brand?.trim()).length
-
-  const steps = [
-    <>Entrá a <a href="https://merchants.google.com" target="_blank" rel="noreferrer" className="font-medium underline">Google Merchant Center</a> con la cuenta de Google de tu negocio y verificá tu tienda.</>,
-    <>Andá a <b>Productos → Agregar productos → Agregar productos desde un archivo</b>, elegí <b>Agregar un vínculo a un archivo</b> y pegá la URL de arriba. Programá la descarga <b>todos los días</b>.</>,
-    <>En <b>Envíos y devoluciones</b> cargá cuánto cobrás el envío (o &ldquo;calculado por el correo&rdquo;) y la devolución de 10 días.</>,
-    <>Cuando Google apruebe los productos, vinculá Merchant Center con <b>Google Ads</b> y creá una campaña de Shopping o Performance Max.</>,
-  ]
 
   return (
     <div className="flex flex-col gap-3 md:gap-4">
@@ -161,20 +155,11 @@ async function GoogleShopping({ slug, settings }: { slug: string; settings: Sett
       </div>
 
       <div className="adm-card adm-sec">
-        <h3 className="adm-h3">Cómo cargarlo en Google</h3>
-        <ol className="mt-3 flex flex-col gap-3 text-[13.5px]">
-          {steps.map((step, i) => (
-            <li key={i} className="flex gap-3">
-              <span
-                className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-full text-[12px] font-semibold"
-                style={{ backgroundColor: 'var(--adm-bg)', border: '1px solid var(--adm-line)' }}
-              >
-                {i + 1}
-              </span>
-              <span className="leading-relaxed">{step}</span>
-            </li>
-          ))}
-        </ol>
+        <h3 className="adm-h3">Conexión con Google</h3>
+        <p className="mt-1.5 text-[13.5px] leading-relaxed" style={{ color: 'var(--adm-muted)' }}>
+          Binary Goats carga tu catálogo en Google Merchant Center por vos: no tenés que crear nada. Mientras tanto,
+          sumá fotos, marca y código de barras a tus productos para que Google los muestre mejor.
+        </p>
       </div>
     </div>
   )
