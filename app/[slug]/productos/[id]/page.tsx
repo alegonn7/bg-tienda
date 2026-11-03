@@ -12,6 +12,7 @@ import { getStoreBySlug, type Store } from '@/lib/tenant'
 import { freeShippingFrom, paymentLabels, pickupText } from '@/lib/store-info'
 import { formatPrice } from '@/lib/format'
 import { SITE_URL } from '@/lib/site-config'
+import { gtinOrNull } from '@/lib/gtin'
 import { absoluteUrl, metaDescription, storeDisplayName } from '@/lib/seo'
 
 // Cada producto se renderiza la primera vez que alguien lo visita y queda cacheado (ISR, ver
@@ -72,6 +73,7 @@ function productJsonLd(
   url: string,
 ) {
   const storeName = storeDisplayName(store)
+  const gtin = gtinOrNull(product.barcode)
   const availability =
     product.stock == null
       ? undefined
@@ -87,7 +89,9 @@ function productJsonLd(
     image: product.images.map(absoluteUrl),
     ...(product.category ? { category: product.category } : {}),
     sku: product.id,
-    brand: { '@type': 'Brand', name: storeName },
+    // brand es la marca del producto (JBL, Xiaomi...), no la tienda: si no está cargada se omite.
+    ...(product.brand?.trim() ? { brand: { '@type': 'Brand', name: product.brand.trim() } } : {}),
+    ...(gtin ? { gtin } : {}),
     offers: {
       '@type': 'Offer',
       url,

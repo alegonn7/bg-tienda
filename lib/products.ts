@@ -19,6 +19,10 @@ export type Product = {
   lengthCm?: number | null
   widthCm?: number | null
   heightCm?: number | null
+  // Marca real del producto (JBL, Xiaomi...) y código de barras. Opcionales: sirven para Google
+  // Shopping (feed y JSON-LD). El código de barras es el mismo de BG Gestión.
+  brand?: string | null
+  barcode?: string | null
 }
 
 export function productImage(product: Product): string {
