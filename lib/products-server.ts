@@ -23,6 +23,8 @@ type CatalogRow = {
   stock_quantity: number | null
   created_at: string
   compare_at_price: number | null
+  brand: string | null
+  barcode: string | null
 }
 
 function mapCatalogRow(row: CatalogRow): Product {
@@ -40,6 +42,8 @@ function mapCatalogRow(row: CatalogRow): Product {
     compareAtPrice: row.compare_at_price ?? null,
     stock: row.stock_quantity,
     productBranchId: row.product_branch_id,
+    brand: row.brand ?? null,
+    barcode: row.barcode ?? null,
   }
 }
 
@@ -50,13 +54,23 @@ function mapCatalogRow(row: CatalogRow): Product {
 // cuesta lo mismo que traer 8.
 const getCatalog = cache(async (organizationId: string): Promise<Product[]> => {
   const supabase = createPublicClient()
-  const { data, error } = await supabase
-    .from('store_catalog')
-    .select('*')
-    .eq('organization_id', organizationId)
-    .order('created_at', { ascending: false })
-  if (error) throw new Error(`getCatalog: ${error.message}`)
-  return (data ?? []).map(mapCatalogRow)
+  // PostgREST devuelve como máximo 1000 filas por request: se pagina para que una tienda grande no
+  // pierda productos (en el feed de Google, sobre todo). product_id desempata el orden entre páginas.
+  const PAGE = 1000
+  const rows: CatalogRow[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('store_catalog')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false })
+      .order('product_id')
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error(`getCatalog: ${error.message}`)
+    rows.push(...((data ?? []) as CatalogRow[]))
+    if (!data || data.length < PAGE) break
+  }
+  return rows.map(mapCatalogRow)
 })
 
 export async function getProducts(organizationId: string, limit?: number): Promise<Product[]> {
@@ -109,6 +123,8 @@ type AdminRow = {
   length_cm: number | null
   width_cm: number | null
   height_cm: number | null
+  brand: string | null
+  barcode: string | null
   categories: { name: string } | null
   products_branch: { id: string; price_sale: number | null; price_cost: number | null; stock_quantity: number | null; is_active: boolean }[]
 }
@@ -134,6 +150,8 @@ function mapAdminRow(row: AdminRow): Product {
     lengthCm: row.length_cm,
     widthCm: row.width_cm,
     heightCm: row.height_cm,
+    brand: row.brand ?? null,
+    barcode: row.barcode ?? null,
   }
 }
 

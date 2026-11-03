@@ -6,6 +6,7 @@ import { searchProductImages, translateAndSearchProductImages, type ImageCandida
 import { invokeMercadoPagoFunction } from '@/lib/mercadopago'
 import { invokeShippingFunction } from '@/lib/shipping'
 import { revalidatePath } from 'next/cache'
+import { isValidGtin, normalizeBarcode } from '@/lib/gtin'
 
 function revalidateStorefront() {
   // No conocemos el slug puntual acá sin una query extra — se invalida el segmento dinámico
@@ -29,17 +30,45 @@ type ProductData = {
   lengthCm?: number | null
   widthCm?: number | null
   heightCm?: number | null
+  brand?: string | null
+  barcode?: string | null
 }
 
-export async function createProduct(data: ProductData) {
+// Marca: texto libre opcional (tope de 70, lo que acepta Google). Código de barras: opcional, pero
+// si se carga tiene que ser un EAN/UPC válido, porque acá se carga para Google Shopping. Es el
+// mismo campo que usa BG Gestión para escanear en el POS.
+function cleanBrand(brand: string | null | undefined): string | null {
+  const b = (brand ?? '').trim().replace(/\s+/g, ' ')
+  return b ? b.slice(0, 70) : null
+}
+
+// Los errores del código de barras se devuelven como { error } y no con throw: en producción Next
+// reemplaza el mensaje de un throw en una server action por uno genérico, y acá el usuario
+// necesita saber qué corregir.
+type SaveResult = { error?: string }
+
+const INVALID_BARCODE = 'El código de barras no es un EAN válido. Revisá que esté completo (8 o 13 números) o dejalo vacío.'
+const DUPLICATE_BARCODE = 'Ya tenés otro producto con ese código de barras.'
+
+function isDuplicateBarcode(err: { message: string; code?: string }): boolean {
+  // products_barcode_org_unique: BG Gestión identifica los productos por el código de barras.
+  return err.code === '23505' && /barcode/i.test(err.message)
+}
+
+export async function createProduct(data: ProductData): Promise<SaveResult> {
   const ctx = await getOrgParaEditar()
 
   const supabase = await createClient()
+  const brand = cleanBrand(data.brand)
+  const barcode = normalizeBarcode(data.barcode) || null
+  if (barcode && !isValidGtin(barcode)) return { error: INVALID_BARCODE }
 
   const { data: product, error } = await supabase
     .from('products')
     .insert({
       organization_id: ctx.organizationId,
+      brand,
+      barcode,
       name: data.name,
       category_id: data.categoryId || null,
       description: data.description,
@@ -54,11 +83,15 @@ export async function createProduct(data: ProductData) {
     })
     .select('id')
     .single()
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (isDuplicateBarcode(error)) return { error: DUPLICATE_BARCODE }
+    throw new Error(error.message)
+  }
 
   const { error: branchError } = await supabase.from('products_branch').insert({
     product_id: product.id,
     branch_id: ctx.onlineBranchId,
+    barcode,
     price_sale: data.price,
     price_cost: data.cost,
     stock_quantity: data.stock,
@@ -67,15 +100,37 @@ export async function createProduct(data: ProductData) {
   if (branchError) throw new Error(branchError.message)
 
   revalidateStorefront()
+  return {}
 }
 
-export async function updateProduct(id: string, productBranchId: string, data: ProductData) {
+export async function updateProduct(id: string, productBranchId: string, data: ProductData): Promise<SaveResult> {
   await getOrgParaEditar()
   const supabase = await createClient()
+  const brand = cleanBrand(data.brand)
+  const barcode = normalizeBarcode(data.barcode) || null
+  if (barcode && !isValidGtin(barcode)) return { error: INVALID_BARCODE }
+
+  // El código de barras solo se carga si el producto todavía no tiene uno: igual que en BG Gestión,
+  // donde identifica al producto en ventas e historial y no se cambia. Se escribe también la copia
+  // de products_branch (BG Gestión busca por ahí al escanear). Va antes que el resto para no guardar
+  // la mitad del producto si el código está repetido.
+  if (barcode) {
+    const { error: bcError } = await supabase.from('products').update({ barcode }).eq('id', id).is('barcode', null)
+    if (bcError) {
+      if (isDuplicateBarcode(bcError)) return { error: DUPLICATE_BARCODE }
+      throw new Error(bcError.message)
+    }
+    const { error: pbError } = await supabase.from('products_branch').update({ barcode }).eq('product_id', id).is('barcode', null)
+    if (pbError) {
+      if (isDuplicateBarcode(pbError)) return { error: DUPLICATE_BARCODE }
+      throw new Error(pbError.message)
+    }
+  }
 
   const { error } = await supabase
     .from('products')
     .update({
+      brand,
       name: data.name,
       category_id: data.categoryId || null,
       description: data.description,
@@ -98,6 +153,7 @@ export async function updateProduct(id: string, productBranchId: string, data: P
   if (branchError) throw new Error(branchError.message)
 
   revalidateStorefront()
+  return {}
 }
 
 // Saca el producto de la tienda online — desactiva su fila de products_branch (is_active=false)

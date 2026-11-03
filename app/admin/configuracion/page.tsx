@@ -1,12 +1,17 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Truck, Wallet } from 'lucide-react'
+import { ShoppingBag, Truck, Wallet } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgForAdminRead } from '@/lib/tenant'
 import { getMercadoPagoStatus, getShippingStatus } from '@/app/admin/actions'
 import { PaymentMethods } from '@/components/admin/payment-methods'
 import { ShippingSettingsForm } from '@/components/admin/shipping-settings-form'
 import { Page, PageHeader } from '@/components/admin/ui'
+import { CopyFeedUrl } from '@/components/admin/merchant-feed'
+import { getStoreBySlug } from '@/lib/tenant'
+import { getProducts } from '@/lib/products-server'
+import { feedItems } from '@/lib/merchant-feed'
+import { SITE_URL } from '@/lib/site-config'
 
 export default async function ConfiguracionPage({
   searchParams,
@@ -18,6 +23,7 @@ export default async function ConfiguracionPage({
 
   const { tab, mp_connected, mp_error } = await searchParams
   const envios = tab === 'envios'
+  const google = tab === 'google'
 
   const supabase = await createClient()
   const { data: storeSettings } = await supabase
@@ -31,8 +37,9 @@ export default async function ConfiguracionPage({
   if (!storeSettings) notFound()
 
   const tabs = [
-    { key: 'pagos', label: 'Medios de pago', icon: Wallet, href: '/admin/configuracion', on: !envios },
+    { key: 'pagos', label: 'Medios de pago', icon: Wallet, href: '/admin/configuracion', on: !envios && !google },
     { key: 'envios', label: 'Envíos', icon: Truck, href: '/admin/configuracion?tab=envios', on: envios },
+    { key: 'google', label: 'Google Shopping', icon: ShoppingBag, href: '/admin/configuracion?tab=google', on: google },
   ]
 
   return (
@@ -58,7 +65,13 @@ export default async function ConfiguracionPage({
         ))}
       </nav>
 
-      {envios ? <Envios settings={storeSettings} branchId={ctx.onlineBranchId} /> : <Pagos settings={storeSettings} mpConnected={mp_connected === '1'} mpError={mp_error} />}
+      {google ? (
+        <GoogleShopping slug={ctx.organizationSlug} settings={storeSettings} />
+      ) : envios ? (
+        <Envios settings={storeSettings} branchId={ctx.onlineBranchId} />
+      ) : (
+        <Pagos settings={storeSettings} mpConnected={mp_connected === '1'} mpError={mp_error} />
+      )}
     </Page>
   )
 }
@@ -93,6 +106,77 @@ async function Pagos({ settings, mpConnected, mpError }: { settings: Settings; m
       transfer={{ enabled: settings.transfer_enabled, cbu: settings.transfer_cbu, alias: settings.transfer_alias, receiptEmail: settings.transfer_receipt_email }}
       whatsapp={{ enabled: settings.whatsapp_orders_enabled, number: settings.whatsapp_number }}
     />
+  )
+}
+
+// Feed de Google Merchant Center (app/[slug]/feed.xml): la URL para copiar, cuántos productos
+// entran y los pasos para cargarlo. Los números salen del mismo catálogo público que lee el feed.
+async function GoogleShopping({ slug, settings }: { slug: string; settings: Settings }) {
+  const feedUrl = `${SITE_URL}/${slug}/feed.xml`
+  const store = await getStoreBySlug(slug).catch(() => null)
+  const products = store ? await getProducts(store.organizationId).catch(() => []) : []
+  const { included, skipped } = store ? feedItems(store, products) : { included: [], skipped: [] }
+  const noPhoto = skipped.filter((s) => s.reason === 'sin foto').length
+  const noBrand = included.filter((p) => !p.brand?.trim()).length
+
+  const steps = [
+    <>Entrá a <a href="https://merchants.google.com" target="_blank" rel="noreferrer" className="font-medium underline">Google Merchant Center</a> con la cuenta de Google de tu negocio y verificá tu tienda.</>,
+    <>Andá a <b>Productos → Agregar productos → Agregar productos desde un archivo</b>, elegí <b>Agregar un vínculo a un archivo</b> y pegá la URL de arriba. Programá la descarga <b>todos los días</b>.</>,
+    <>En <b>Envíos y devoluciones</b> cargá cuánto cobrás el envío (o &ldquo;calculado por el correo&rdquo;) y la devolución de 10 días.</>,
+    <>Cuando Google apruebe los productos, vinculá Merchant Center con <b>Google Ads</b> y creá una campaña de Shopping o Performance Max.</>,
+  ]
+
+  return (
+    <div className="flex flex-col gap-3 md:gap-4">
+      <div className="adm-card adm-sec">
+        <h3 className="adm-h3">Tu feed de productos</h3>
+        <p className="adm-hint mt-0.5 mb-3.5">
+          Con esta dirección Google lee tus productos para mostrarlos en Shopping. Se actualiza sola cada hora.
+        </p>
+        <CopyFeedUrl url={feedUrl} />
+        {store && (
+          <ul className="mt-3.5 flex flex-col gap-1.5 text-[13px]" style={{ color: 'var(--adm-muted)' }}>
+            <li>
+              <b style={{ color: 'var(--adm-ink)' }}>{included.length}</b> de {products.length} productos visibles entran al feed.
+            </li>
+            {!settings.show_prices && (
+              <li style={{ color: 'var(--adm-bad)' }}>Tu tienda oculta los precios: Google necesita el precio, así que el feed sale vacío.</li>
+            )}
+            {settings.show_prices && noPhoto > 0 && (
+              <li>
+                {noPhoto} quedan afuera por no tener foto (Google no acepta productos sin imagen).{' '}
+                <Link href="/admin/productos/sugerir-imagenes" className="font-medium underline" style={{ color: 'var(--adm-ink)' }}>
+                  Buscar fotos
+                </Link>
+              </li>
+            )}
+            {noBrand > 0 && <li>{noBrand} no tienen marca cargada. Con marca y código de barras Google los muestra mejor.</li>}
+          </ul>
+        )}
+        {!settings.shipping_enabled && (
+          <p className="mt-3.5 rounded-[10px] px-3 py-2.5 text-[13px]" style={{ backgroundColor: 'var(--adm-bg)', color: 'var(--adm-muted)' }}>
+            Tu tienda no tiene envíos activados. Para los anuncios de Shopping Google pide que hagas envíos a domicilio.
+          </p>
+        )}
+      </div>
+
+      <div className="adm-card adm-sec">
+        <h3 className="adm-h3">Cómo cargarlo en Google</h3>
+        <ol className="mt-3 flex flex-col gap-3 text-[13.5px]">
+          {steps.map((step, i) => (
+            <li key={i} className="flex gap-3">
+              <span
+                className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-full text-[12px] font-semibold"
+                style={{ backgroundColor: 'var(--adm-bg)', border: '1px solid var(--adm-line)' }}
+              >
+                {i + 1}
+              </span>
+              <span className="leading-relaxed">{step}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
   )
 }
 

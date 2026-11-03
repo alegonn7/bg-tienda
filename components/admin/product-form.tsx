@@ -3,12 +3,13 @@
 import Link from 'next/link'
 import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronDown, Eye, EyeOff, Star, Upload, X } from 'lucide-react'
+import { Check, ChevronDown, Eye, EyeOff, ScanBarcode, Star, Upload, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Product } from '@/lib/products'
 import { createProduct, updateProduct } from '@/app/admin/actions'
 import { compressImage } from '@/lib/compress-image'
 import { formatPrice } from '@/lib/format'
+import { isValidGtin, normalizeBarcode } from '@/lib/gtin'
 import { ErrorText, Field, Toggle } from '@/components/admin/ui'
 
 type Item = { id: string; name: string }
@@ -49,6 +50,12 @@ export function ProductForm({ product, copyFrom, categories, sizes: availableSiz
   const [widthCm, setWidthCm] = useState(base?.widthCm?.toString() ?? '')
   const [heightCm, setHeightCm] = useState(base?.heightCm?.toString() ?? '')
   const [showDims, setShowDims] = useState(!!(base?.weightGrams || base?.lengthCm))
+  // Marca y código de barras (opcionales, para Google Shopping). El código no se copia al duplicar
+  // (es único por tienda) y, si el producto ya tiene uno, queda fijo: igual que en BG Gestión.
+  const [brand, setBrand] = useState(base?.brand ?? '')
+  const lockedBarcode = isEdit ? (product?.barcode ?? null) : null
+  const [barcode, setBarcode] = useState('')
+  const barcodeInvalid = !lockedBarcode && normalizeBarcode(barcode) !== '' && !isValidGtin(barcode)
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -118,6 +125,10 @@ export function ProductForm({ product, copyFrom, categories, sizes: availableSiz
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (barcodeInvalid) {
+      setError('El código de barras no es un EAN válido. Revisá que esté completo o dejalo vacío.')
+      return
+    }
     setSaving(true)
     setError('')
 
@@ -137,11 +148,17 @@ export function ProductForm({ product, copyFrom, categories, sizes: availableSiz
         lengthCm: lengthCm.trim() === '' ? null : Number(lengthCm),
         widthCm: widthCm.trim() === '' ? null : Number(widthCm),
         heightCm: heightCm.trim() === '' ? null : Number(heightCm),
+        brand: brand.trim() || null,
+        barcode: lockedBarcode ? null : normalizeBarcode(barcode) || null,
       }
-      if (isEdit && product?.productBranchId) {
-        await updateProduct(product.id, product.productBranchId, data)
-      } else {
-        await createProduct(data)
+      const result =
+        isEdit && product?.productBranchId
+          ? await updateProduct(product.id, product.productBranchId, data)
+          : await createProduct(data)
+      if (result?.error) {
+        setError(result.error)
+        setSaving(false)
+        return
       }
       router.push('/admin/productos')
       router.refresh()
@@ -391,6 +408,59 @@ export function ProductForm({ product, copyFrom, categories, sizes: availableSiz
               </div>
               <Toggle checked={featured} onChange={edit(setFeatured)} label="Destacado" />
             </div>
+          </div>
+
+          {/* Marca y código de barras: opcionales. Con estos dos datos Google muestra mucho mejor el
+              producto en Shopping (sobre todo en tecnología). */}
+          <div className="adm-card adm-sec">
+            <h3 className="adm-h3">Marca y código</h3>
+            <p className="adm-hint mt-0.5">Opcional. Ayuda a que Google muestre el producto en Shopping.</p>
+            <Field label="Marca" className="mt-3.5">
+              <input
+                type="text"
+                value={brand}
+                maxLength={70}
+                onChange={(e) => edit(setBrand)(e.target.value)}
+                placeholder="Ej: JBL, Xiaomi, Samsung"
+                className="adm-input"
+              />
+            </Field>
+            <Field label="Código de barras (EAN)" className="mt-3.5">
+              {lockedBarcode ? (
+                <div
+                  className="flex items-center gap-2 rounded-[10px] px-3 py-2 font-mono text-[13px]"
+                  style={{ backgroundColor: 'var(--adm-bg)', border: '1px solid var(--adm-line)', color: 'var(--adm-muted)' }}
+                >
+                  <ScanBarcode className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{lockedBarcode}</span>
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={barcode}
+                  onChange={(e) => edit(setBarcode)(e.target.value)}
+                  placeholder="Los números debajo de las barras"
+                  className="adm-input"
+                  aria-invalid={barcodeInvalid}
+                />
+              )}
+            </Field>
+            {lockedBarcode ? (
+              <p className="mt-2 text-[12px]" style={{ color: 'var(--adm-soft)' }}>
+                {isValidGtin(lockedBarcode)
+                  ? 'El código de barras no se puede cambiar.'
+                  : 'Es un código interno: no se puede cambiar y Google no lo usa.'}
+              </p>
+            ) : barcodeInvalid ? (
+              <p className="mt-2 text-[12px]" style={{ color: 'var(--adm-bad)' }}>
+                No es un EAN válido. Revisá que esté completo (8 o 13 números).
+              </p>
+            ) : (
+              <p className="mt-2 text-[12px]" style={{ color: 'var(--adm-soft)' }}>
+                Una vez guardado no se puede cambiar.
+              </p>
+            )}
           </div>
 
           {stats && (
